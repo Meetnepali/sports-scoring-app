@@ -1,0 +1,1304 @@
+// Static data for the app
+
+import { query } from "./database"
+
+export type Team = {
+  id: string
+  name: string
+  sport: string
+  logo?: string
+  players: Player[]
+}
+
+export type Player = {
+  id: string
+  name: string
+  number?: number
+  position?: string
+  isOnCourt?: boolean
+  courtPosition?: number
+}
+
+export type Match = {
+  id: string
+  sport: string
+  homeTeam: Team
+  awayTeam: Team
+  date: string
+  venue: string
+  status: "scheduled" | "live" | "completed"
+  score?: any // Different structure based on sport
+}
+
+export type Tournament = {
+  id: string
+  name: string
+  sport: string
+  format: string
+  bracketType: string
+  status: string
+  startDate: string
+  teams: string[]
+  matches: any[]
+  teamLogos: Record<string, string>
+}
+
+export type User = {
+  id: string
+  username: string
+  email: string
+  fullName: string
+  role: string
+  avatarUrl?: string
+}
+
+// Cricket Teams
+export const cricketTeams: Team[] = [
+  {
+    id: "cri-team-1",
+    name: "Royal Challengers",
+    sport: "cricket",
+    players: [
+      { id: "p1", name: "Virat Kohli", number: 18 },
+      { id: "p2", name: "AB de Villiers", number: 17 },
+      { id: "p3", name: "Glenn Maxwell", number: 32 },
+      { id: "p4", name: "Mohammed Siraj", number: 73 },
+      { id: "p5", name: "Yuzvendra Chahal", number: 3 },
+      { id: "p6", name: "Devdutt Padikkal", number: 37 },
+      { id: "p7", name: "Washington Sundar", number: 55 },
+      { id: "p8", name: "Navdeep Saini", number: 96 },
+      { id: "p9", name: "Kane Richardson", number: 12 },
+      { id: "p10", name: "Adam Zampa", number: 88 },
+      { id: "p11", name: "Josh Philippe", number: 22 },
+    ],
+  },
+  {
+    id: "cri-team-2",
+    name: "Mumbai Indians",
+    sport: "cricket",
+    players: [
+      { id: "p12", name: "Rohit Sharma", number: 45 },
+      { id: "p13", name: "Jasprit Bumrah", number: 93 },
+      { id: "p14", name: "Hardik Pandya", number: 33 },
+      { id: "p15", name: "Kieron Pollard", number: 55 },
+      { id: "p16", name: "Quinton de Kock", number: 12 },
+      { id: "p17", name: "Suryakumar Yadav", number: 63 },
+      { id: "p18", name: "Ishan Kishan", number: 32 },
+      { id: "p19", name: "Trent Boult", number: 18 },
+      { id: "p20", name: "Krunal Pandya", number: 24 },
+      { id: "p21", name: "Rahul Chahar", number: 1 },
+      { id: "p22", name: "Anmolpreet Singh", number: 4 },
+    ],
+  },
+]
+
+// Volleyball Teams
+export const volleyballTeams: Team[] = [
+  {
+    id: "vol-team-1",
+    name: "Thunderbolts",
+    sport: "volleyball",
+    players: [
+      { id: "vp1", name: "John Smith", number: 1, position: "Setter" },
+      { id: "vp2", name: "Michael Johnson", number: 2, position: "Outside Hitter" },
+      { id: "vp3", name: "David Lee", number: 3, position: "Middle Blocker" },
+      { id: "vp4", name: "Robert Brown", number: 4, position: "Opposite" },
+      { id: "vp5", name: "James Wilson", number: 5, position: "Outside Hitter" },
+      { id: "vp6", name: "William Davis", number: 6, position: "Middle Blocker" },
+      { id: "vp7", name: "Richard Miller", number: 7, position: "Libero" },
+    ],
+  },
+  {
+    id: "vol-team-2",
+    name: "Skyliners",
+    sport: "volleyball",
+    players: [
+      { id: "vp8", name: "Thomas Moore", number: 8, position: "Setter" },
+      { id: "vp9", name: "Charles Taylor", number: 9, position: "Outside Hitter" },
+      { id: "vp10", name: "Daniel Anderson", number: 10, position: "Middle Blocker" },
+      { id: "vp11", name: "Matthew Jackson", number: 11, position: "Opposite" },
+      { id: "vp12", name: "Anthony White", number: 12, position: "Outside Hitter" },
+      { id: "vp13", name: "Mark Harris", number: 13, position: "Middle Blocker" },
+      { id: "vp14", name: "Paul Martin", number: 14, position: "Libero" },
+    ],
+  },
+]
+
+// Chess Players
+export const chessTeams: Team[] = [
+  {
+    id: "chess-team-1",
+    name: "Grandmasters",
+    sport: "chess",
+    players: [
+      { id: "cp1", name: "Magnus Carlsen" },
+      { id: "cp2", name: "Fabiano Caruana" },
+      { id: "cp3", name: "Ding Liren" },
+      { id: "cp4", name: "Ian Nepomniachtchi" },
+    ],
+  },
+  {
+    id: "chess-team-2",
+    name: "Strategists",
+    sport: "chess",
+    players: [
+      { id: "cp5", name: "Hikaru Nakamura" },
+      { id: "cp6", name: "Levon Aronian" },
+      { id: "cp7", name: "Wesley So" },
+      { id: "cp8", name: "Anish Giri" },
+    ],
+  },
+]
+
+// Futsal Teams
+export const futsalTeams: Team[] = [
+  {
+    id: "fut-team-1",
+    name: "Urban Kickers",
+    sport: "futsal",
+    players: [
+      { id: "fp1", name: "Carlos Silva", number: 1, position: "Goalkeeper" },
+      { id: "fp2", name: "Rodrigo Mendes", number: 2, position: "Defender" },
+      { id: "fp3", name: "Felipe Santos", number: 3, position: "Winger" },
+      { id: "fp4", name: "Lucas Oliveira", number: 4, position: "Pivot" },
+      { id: "fp5", name: "Gabriel Costa", number: 5, position: "Winger" },
+    ],
+  },
+  {
+    id: "fut-team-2",
+    name: "Futsal Kings",
+    sport: "futsal",
+    players: [
+      { id: "fp6", name: "Miguel Fernandez", number: 1, position: "Goalkeeper" },
+      { id: "fp7", name: "Antonio Perez", number: 2, position: "Defender" },
+      { id: "fp8", name: "Javier Lopez", number: 3, position: "Winger" },
+      { id: "fp9", name: "Alejandro Martinez", number: 4, position: "Pivot" },
+      { id: "fp10", name: "Diego Rodriguez", number: 5, position: "Winger" },
+    ],
+  },
+]
+
+// Table Tennis Teams
+export const tableTennisTeams: Team[] = [
+  {
+    id: "tt-team-1",
+    name: "Spin Masters",
+    sport: "table-tennis",
+    players: [
+      { id: "ttp1", name: "Liu Yang", number: 1 },
+      { id: "ttp2", name: "Wang Wei", number: 2 },
+      { id: "ttp3", name: "Zhang Min", number: 3 },
+      { id: "ttp4", name: "Li Jie", number: 4 },
+    ],
+  },
+  {
+    id: "tt-team-2",
+    name: "Paddle Pros",
+    sport: "table-tennis",
+    players: [
+      { id: "ttp5", name: "John Smith", number: 1 },
+      { id: "ttp6", name: "Michael Brown", number: 2 },
+      { id: "ttp7", name: "David Jones", number: 3 },
+      { id: "ttp8", name: "Robert Wilson", number: 4 },
+    ],
+  },
+]
+
+// Badminton Teams
+export const badmintonTeams: Team[] = [
+  {
+    id: "bad-team-1",
+    name: "Shuttlers",
+    sport: "badminton",
+    players: [
+      { id: "bp1", name: "Lee Chong", number: 1 },
+      { id: "bp2", name: "Lin Dan", number: 2 },
+      { id: "bp3", name: "Chen Long", number: 3 },
+      { id: "bp4", name: "Viktor Axelsen", number: 4 },
+    ],
+  },
+  {
+    id: "bad-team-2",
+    name: "Racket Masters",
+    sport: "badminton",
+    players: [
+      { id: "bp5", name: "Kento Momota", number: 1 },
+      { id: "bp6", name: "Srikanth Kidambi", number: 2 },
+      { id: "bp7", name: "Anders Antonsen", number: 3 },
+      { id: "bp8", name: "Chou Tien Chen", number: 4 },
+    ],
+  },
+]
+
+// All teams combined
+export const allTeams: Team[] = [
+  ...cricketTeams,
+  ...volleyballTeams,
+  ...chessTeams,
+  ...futsalTeams,
+  ...tableTennisTeams,
+  ...badmintonTeams,
+]
+
+// Matches
+export const matches: Match[] = [
+  // Cricket Matches
+  {
+    id: "match-cri-1",
+    sport: "cricket",
+    homeTeam: cricketTeams[0],
+    awayTeam: cricketTeams[1],
+    date: "2025-05-10T14:00:00",
+    venue: "Cricket Stadium",
+    status: "scheduled",
+  },
+  {
+    id: "match-cri-2",
+    sport: "cricket",
+    homeTeam: cricketTeams[1],
+    awayTeam: cricketTeams[0],
+    date: "2025-04-30T10:00:00",
+    venue: "Cricket Arena",
+    status: "live",
+    score: {
+      innings: [
+        {
+          team: cricketTeams[1].id,
+          runs: 186,
+          wickets: 4,
+          overs: 20.0,
+          batsmen: [
+            {
+              player: "p12",
+              name: "Rohit Sharma",
+              runs: 68,
+              balls: 43,
+              fours: 5,
+              sixes: 3,
+              status: "not out",
+            },
+            {
+              player: "p13",
+              name: "Jasprit Bumrah",
+              runs: 12,
+              balls: 10,
+              fours: 1,
+              sixes: 0,
+              status: "not out",
+            },
+            {
+              player: "p14",
+              name: "Hardik Pandya",
+              runs: 42,
+              balls: 28,
+              fours: 3,
+              sixes: 2,
+              status: "out",
+            },
+            {
+              player: "p15",
+              name: "Kieron Pollard",
+              runs: 36,
+              balls: 22,
+              fours: 2,
+              sixes: 3,
+              status: "out",
+            },
+          ],
+          bowlers: [
+            {
+              player: "p4",
+              name: "Mohammed Siraj",
+              overs: 4,
+              maidens: 0,
+              runs: 42,
+              wickets: 2,
+            },
+            {
+              player: "p5",
+              name: "Yuzvendra Chahal",
+              overs: 4,
+              maidens: 0,
+              runs: 38,
+              wickets: 1,
+            },
+          ],
+          extras: {
+            wides: 8,
+            noBalls: 2,
+            byes: 4,
+            legByes: 2,
+            penalty: 0,
+          },
+        },
+        {
+          team: cricketTeams[0].id,
+          runs: 142,
+          wickets: 7,
+          overs: 17.2,
+          batsmen: [
+            {
+              player: "p1",
+              name: "Virat Kohli",
+              runs: 57,
+              balls: 39,
+              fours: 6,
+              sixes: 2,
+              status: "out",
+            },
+            {
+              player: "p2",
+              name: "AB de Villiers",
+              runs: 32,
+              balls: 21,
+              fours: 3,
+              sixes: 1,
+              status: "out",
+            },
+            {
+              player: "p3",
+              name: "Glenn Maxwell",
+              runs: 24,
+              balls: 18,
+              fours: 2,
+              sixes: 1,
+              status: "out",
+            },
+            {
+              player: "p6",
+              name: "Devdutt Padikkal",
+              runs: 15,
+              balls: 12,
+              fours: 2,
+              sixes: 0,
+              status: "not out",
+            },
+          ],
+          bowlers: [
+            {
+              player: "p13",
+              name: "Jasprit Bumrah",
+              overs: 4,
+              maidens: 0,
+              runs: 26,
+              wickets: 3,
+            },
+            {
+              player: "p19",
+              name: "Trent Boult",
+              overs: 4,
+              maidens: 0,
+              runs: 32,
+              wickets: 2,
+            },
+          ],
+          extras: {
+            wides: 6,
+            noBalls: 1,
+            byes: 2,
+            legByes: 5,
+            penalty: 0,
+          },
+        },
+      ],
+      currentInnings: 1,
+      currentBatsmen: ["p6", "p7"],
+      currentBowler: "p13",
+      striker: "p6",
+      nonStriker: "p7",
+      commentary: [
+        { text: "Match begins! Mumbai Indians won the toss and elected to bat first.", timestamp: "10:00:00 AM" },
+        { text: "Rohit Sharma and Quinton de Kock open the innings for Mumbai Indians.", timestamp: "10:05:00 AM" },
+        { text: "FOUR! Rohit Sharma hits a beautiful cover drive off Mohammed Siraj.", timestamp: "10:08:30 AM" },
+        { text: "SIX! Rohit Sharma smashes it over long-on!", timestamp: "10:15:45 AM" },
+        { text: "OUT! de Kock is caught at mid-wicket by Maxwell off Chahal's bowling.", timestamp: "10:22:15 AM" },
+        { text: "Hardik Pandya comes to the crease.", timestamp: "10:24:00 AM" },
+        { text: "FOUR! Pandya gets off the mark with a boundary.", timestamp: "10:25:30 AM" },
+        { text: "End of powerplay. Mumbai Indians are 58/1.", timestamp: "10:30:00 AM" },
+      ],
+      ballHistory: [
+        { type: "run", value: 1, batsman: "p12", bowler: "p4" },
+        { type: "run", value: 4, batsman: "p12", bowler: "p4" },
+        { type: "run", value: 0, batsman: "p16", bowler: "p4" },
+        { type: "run", value: 2, batsman: "p16", bowler: "p4" },
+        { type: "wides", value: 1, bowler: "p4" },
+        { type: "run", value: 1, batsman: "p16", bowler: "p4" },
+      ],
+    },
+  },
+  {
+    id: "match-cri-3",
+    sport: "cricket",
+    homeTeam: cricketTeams[0],
+    awayTeam: cricketTeams[1],
+    date: "2025-03-15T13:00:00",
+    venue: "National Cricket Stadium",
+    status: "completed",
+    score: {
+      innings: [
+        {
+          team: cricketTeams[0].id,
+          runs: 195,
+          wickets: 6,
+          overs: 20.0,
+          batsmen: [
+            {
+              player: "p1",
+              name: "Virat Kohli",
+              runs: 82,
+              balls: 49,
+              fours: 7,
+              sixes: 4,
+              status: "out",
+            },
+            {
+              player: "p2",
+              name: "AB de Villiers",
+              runs: 45,
+              balls: 28,
+              fours: 4,
+              sixes: 2,
+              status: "out",
+            },
+            {
+              player: "p3",
+              name: "Glenn Maxwell",
+              runs: 38,
+              balls: 22,
+              fours: 3,
+              sixes: 3,
+              status: "not out",
+            },
+          ],
+          bowlers: [
+            {
+              player: "p13",
+              name: "Jasprit Bumrah",
+              overs: 4,
+              maidens: 0,
+              runs: 32,
+              wickets: 2,
+            },
+            {
+              player: "p19",
+              name: "Trent Boult",
+              overs: 4,
+              maidens: 0,
+              runs: 38,
+              wickets: 1,
+            },
+          ],
+          extras: {
+            wides: 7,
+            noBalls: 2,
+            byes: 3,
+            legByes: 4,
+            penalty: 0,
+          },
+        },
+        {
+          team: cricketTeams[1].id,
+          runs: 182,
+          wickets: 10,
+          overs: 19.3,
+          batsmen: [
+            {
+              player: "p12",
+              name: "Rohit Sharma",
+              runs: 54,
+              balls: 35,
+              fours: 5,
+              sixes: 2,
+              status: "out",
+            },
+            {
+              player: "p14",
+              name: "Hardik Pandya",
+              runs: 38,
+              balls: 24,
+              fours: 3,
+              sixes: 2,
+              status: "out",
+            },
+            {
+              player: "p15",
+              name: "Kieron Pollard",
+              runs: 29,
+              balls: 18,
+              fours: 2,
+              sixes: 2,
+              status: "out",
+            },
+          ],
+          bowlers: [
+            {
+              player: "p4",
+              name: "Mohammed Siraj",
+              overs: 4,
+              maidens: 0,
+              runs: 36,
+              wickets: 3,
+            },
+            {
+              player: "p5",
+              name: "Yuzvendra Chahal",
+              overs: 4,
+              maidens: 0,
+              runs: 32,
+              wickets: 4,
+            },
+          ],
+          extras: {
+            wides: 5,
+            noBalls: 1,
+            byes: 2,
+            legByes: 3,
+            penalty: 0,
+          },
+        },
+      ],
+      commentary: [
+        { text: "Royal Challengers win by 13 runs! A thrilling match comes to an end.", timestamp: "3:45:00 PM" },
+        { text: "Chahal is the player of the match with figures of 4/32.", timestamp: "3:50:00 PM" },
+        { text: "Virat Kohli's 82 was the highest score of the match.", timestamp: "3:52:30 PM" },
+      ],
+    },
+  },
+
+  // Volleyball Matches
+  {
+    id: "match-vol-1",
+    sport: "volleyball",
+    homeTeam: volleyballTeams[0],
+    awayTeam: volleyballTeams[1],
+    date: "2025-05-15T18:00:00",
+    venue: "Volleyball Court",
+    status: "scheduled",
+  },
+  {
+    id: "match-vol-2",
+    sport: "volleyball",
+    homeTeam: volleyballTeams[1],
+    awayTeam: volleyballTeams[0],
+    date: "2025-04-30T16:00:00",
+    venue: "Sports Hall",
+    status: "live",
+    score: {
+      sets: [
+        { home: 25, away: 21 },
+        { home: 18, away: 25 },
+        { home: 25, away: 23 },
+        { home: 22, away: 25 },
+        { home: 10, away: 8 },
+      ],
+      currentSet: 4,
+      servingTeam: "home",
+      homeTeam: {
+        id: "vol-team-2",
+        name: "Skyliners",
+        players: [
+          { id: "vp8", name: "Thomas Moore", number: 8, position: "Setter", isOnCourt: true, courtPosition: 1 },
+          {
+            id: "vp9",
+            name: "Charles Taylor",
+            number: 9,
+            position: "Outside Hitter",
+            isOnCourt: true,
+            courtPosition: 2,
+          },
+          {
+            id: "vp10",
+            name: "Daniel Anderson",
+            number: 10,
+            position: "Middle Blocker",
+            isOnCourt: true,
+            courtPosition: 3,
+          },
+          { id: "vp11", name: "Matthew Jackson", number: 11, position: "Opposite", isOnCourt: true, courtPosition: 4 },
+          {
+            id: "vp12",
+            name: "Anthony White",
+            number: 12,
+            position: "Outside Hitter",
+            isOnCourt: true,
+            courtPosition: 5,
+          },
+          {
+            id: "vp13",
+            name: "Mark Harris",
+            number: 13,
+            position: "Middle Blocker",
+            isOnCourt: true,
+            courtPosition: 6,
+          },
+          { id: "vp14", name: "Paul Martin", number: 14, position: "Libero", isOnCourt: false },
+        ],
+        currentServer: "vp8",
+      },
+      awayTeam: {
+        id: "vol-team-1",
+        name: "Thunderbolts",
+        players: [
+          { id: "vp1", name: "John Smith", number: 1, position: "Setter", isOnCourt: true, courtPosition: 1 },
+          {
+            id: "vp2",
+            name: "Michael Johnson",
+            number: 2,
+            position: "Outside Hitter",
+            isOnCourt: true,
+            courtPosition: 2,
+          },
+          { id: "vp3", name: "David Lee", number: 3, position: "Middle Blocker", isOnCourt: true, courtPosition: 3 },
+          { id: "vp4", name: "Robert Brown", number: 4, position: "Opposite", isOnCourt: true, courtPosition: 4 },
+          { id: "vp5", name: "James Wilson", number: 5, position: "Outside Hitter", isOnCourt: true, courtPosition: 5 },
+          {
+            id: "vp6",
+            name: "William Davis",
+            number: 6,
+            position: "Middle Blocker",
+            isOnCourt: true,
+            courtPosition: 6,
+          },
+          { id: "vp7", name: "Richard Miller", number: 7, position: "Libero", isOnCourt: false },
+        ],
+        currentServer: "vp1",
+      },
+    },
+  },
+  {
+    id: "match-vol-3",
+    sport: "volleyball",
+    homeTeam: volleyballTeams[0],
+    awayTeam: volleyballTeams[1],
+    date: "2025-03-20T17:00:00",
+    venue: "National Volleyball Arena",
+    status: "completed",
+    score: {
+      sets: [
+        { home: 25, away: 18 },
+        { home: 25, away: 22 },
+        { home: 23, away: 25 },
+        { home: 25, away: 20 },
+      ],
+      homeTeam: volleyballTeams[0],
+      awayTeam: volleyballTeams[1],
+    },
+  },
+
+  // Chess Matches
+  {
+    id: "match-chess-1",
+    sport: "chess",
+    homeTeam: chessTeams[0],
+    awayTeam: chessTeams[1],
+    date: "2025-05-20T10:00:00",
+    venue: "Chess Club",
+    status: "scheduled",
+  },
+  {
+    id: "match-chess-2",
+    sport: "chess",
+    homeTeam: chessTeams[1],
+    awayTeam: chessTeams[0],
+    date: "2025-04-30T09:00:00",
+    venue: "Chess Academy",
+    status: "live",
+    score: {
+      games: [
+        { player1: "cp5", player2: "cp1", result: "1-0" },
+        { player1: "cp6", player2: "cp2", result: "0-1" },
+        { player1: "cp7", player2: "cp3", result: "½-½" },
+        { player1: "cp8", player2: "cp4", result: "ongoing" },
+      ],
+      teamScore: { home: 1.5, away: 1.5 },
+    },
+  },
+  {
+    id: "match-chess-3",
+    sport: "chess",
+    homeTeam: chessTeams[0],
+    awayTeam: chessTeams[1],
+    date: "2025-02-15T10:00:00",
+    venue: "International Chess Center",
+    status: "completed",
+    score: {
+      games: [
+        { player1: "cp1", player2: "cp5", result: "1-0" },
+        { player1: "cp2", player2: "cp6", result: "½-½" },
+        { player1: "cp3", player2: "cp7", result: "1-0" },
+        { player1: "cp4", player2: "cp8", result: "0-1" },
+      ],
+      teamScore: { home: 2.5, away: 1.5 },
+    },
+  },
+
+  // Futsal Matches
+  {
+    id: "match-fut-1",
+    sport: "futsal",
+    homeTeam: futsalTeams[0],
+    awayTeam: futsalTeams[1],
+    date: "2025-05-25T19:00:00",
+    venue: "Futsal Arena",
+    status: "scheduled",
+  },
+  {
+    id: "match-fut-2",
+    sport: "futsal",
+    homeTeam: futsalTeams[1],
+    awayTeam: futsalTeams[0],
+    date: "2025-04-30T18:00:00",
+    venue: "Indoor Sports Complex",
+    status: "live",
+    score: {
+      home: 3,
+      away: 2,
+      period: "Second Half",
+      time: "32:15",
+      goals: [
+        { team: futsalTeams[1].id, player: "fp8", time: "5:12" },
+        { team: futsalTeams[0].id, player: "fp3", time: "12:45" },
+        { team: futsalTeams[1].id, player: "fp9", time: "18:30" },
+        { team: futsalTeams[0].id, player: "fp4", time: "24:10" },
+        { team: futsalTeams[1].id, player: "fp10", time: "29:55" },
+      ],
+    },
+  },
+  {
+    id: "match-fut-3",
+    sport: "futsal",
+    homeTeam: futsalTeams[0],
+    awayTeam: futsalTeams[1],
+    date: "2025-03-10T19:00:00",
+    venue: "City Futsal Center",
+    status: "completed",
+    score: {
+      home: 5,
+      away: 3,
+      period: "Full Time",
+      time: "40:00",
+      goals: [
+        { team: futsalTeams[0].id, player: "fp3", time: "4:20" },
+        { team: futsalTeams[1].id, player: "fp8", time: "8:15" },
+        { team: futsalTeams[0].id, player: "fp4", time: "12:30" },
+        { team: futsalTeams[0].id, player: "fp3", time: "18:45" },
+        { team: futsalTeams[1].id, player: "fp9", time: "22:10" },
+        { team: futsalTeams[0].id, player: "fp5", time: "28:35" },
+        { team: futsalTeams[1].id, player: "fp10", time: "32:50" },
+        { team: futsalTeams[0].id, player: "fp4", time: "38:25" },
+      ],
+    },
+  },
+
+  // Table Tennis Matches
+  {
+    id: "match-tt-1",
+    sport: "table-tennis",
+    homeTeam: tableTennisTeams[0],
+    awayTeam: tableTennisTeams[1],
+    date: "2025-06-10T14:00:00",
+    venue: "Table Tennis Arena",
+    status: "scheduled",
+  },
+  {
+    id: "match-tt-2",
+    sport: "table-tennis",
+    homeTeam: tableTennisTeams[1],
+    awayTeam: tableTennisTeams[0],
+    date: "2025-04-30T15:00:00",
+    venue: "Sports Complex",
+    status: "live",
+    score: {
+      sets: [
+        { home: 11, away: 7 },
+        { home: 8, away: 11 },
+        { home: 11, away: 9 },
+        { home: 5, away: 11 },
+        { home: 7, away: 3 },
+        { home: 0, away: 0 },
+        { home: 0, away: 0 },
+      ],
+      currentSet: 4,
+      servingPlayer: "home",
+      pointsToWin: 11,
+      setsToWin: 4,
+    },
+  },
+  {
+    id: "match-tt-3",
+    sport: "table-tennis",
+    homeTeam: tableTennisTeams[0],
+    awayTeam: tableTennisTeams[1],
+    date: "2025-02-25T14:00:00",
+    venue: "National Table Tennis Center",
+    status: "completed",
+    score: {
+      sets: [
+        { home: 11, away: 8 },
+        { home: 11, away: 6 },
+        { home: 9, away: 11 },
+        { home: 11, away: 7 },
+      ],
+      servingPlayer: "home",
+      pointsToWin: 11,
+      setsToWin: 4,
+    },
+  },
+
+  // Badminton Matches
+  {
+    id: "match-bad-1",
+    sport: "badminton",
+    homeTeam: badmintonTeams[0],
+    awayTeam: badmintonTeams[1],
+    date: "2025-06-15T16:00:00",
+    venue: "Badminton Court",
+    status: "scheduled",
+  },
+  {
+    id: "match-bad-2",
+    sport: "badminton",
+    homeTeam: badmintonTeams[1],
+    awayTeam: badmintonTeams[0],
+    date: "2025-04-30T17:00:00",
+    venue: "Sports Hall",
+    status: "live",
+    score: {
+      games: [
+        { home: 21, away: 18 },
+        { home: 14, away: 21 },
+        { home: 12, away: 9 },
+      ],
+      currentGame: 2,
+      servingPlayer: "away",
+      pointsToWin: 21,
+      gamesToWin: 2,
+    },
+  },
+  {
+    id: "match-bad-3",
+    sport: "badminton",
+    homeTeam: badmintonTeams[0],
+    awayTeam: badmintonTeams[1],
+    date: "2025-03-05T16:00:00",
+    venue: "City Badminton Center",
+    status: "completed",
+    score: {
+      games: [
+        { home: 21, away: 19 },
+        { home: 18, away: 21 },
+        { home: 21, away: 15 },
+      ],
+      servingPlayer: "home",
+      pointsToWin: 21,
+      gamesToWin: 2,
+    },
+  },
+]
+
+// Team functions
+export async function createTeam(teamData: {
+  name: string
+  sport: string
+  logo?: string
+  players: Omit<Player, "id">[]
+}): Promise<Team> {
+  try {
+    // Insert team
+    const teamResult = await query(`INSERT INTO teams (name, sport, logo) VALUES ($1, $2, $3) RETURNING *`, [
+      teamData.name,
+      teamData.sport,
+      teamData.logo || null,
+    ])
+
+    const team = teamResult[0]
+
+    // Insert players
+    const players: Player[] = []
+    for (const player of teamData.players) {
+      if (player.name && player.name.trim() !== "") {
+        const playerResult = await query(
+          `INSERT INTO players (team_id, name, number, position) VALUES ($1, $2, $3, $4) RETURNING *`,
+          [team.id, player.name, player.number || null, player.position || null],
+        )
+        players.push(playerResult[0])
+      }
+    }
+
+    return {
+      id: team.id,
+      name: team.name,
+      sport: team.sport,
+      logo: team.logo,
+      players,
+    }
+  } catch (error) {
+    console.error("Error creating team:", error)
+    throw new Error("Failed to create team")
+  }
+}
+
+export async function getTeamsBySport(sport: string): Promise<Team[]> {
+  try {
+    const teams = await query(
+      `SELECT t.*, 
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', p.id,
+                    'name', p.name,
+                    'number', p.number,
+                    'position', p.position
+                  ) ORDER BY p.number
+                ) FILTER (WHERE p.id IS NOT NULL),
+                '[]'::json
+              ) as players
+       FROM teams t
+       LEFT JOIN players p ON t.id = p.team_id
+       WHERE t.sport = $1
+       GROUP BY t.id, t.name, t.sport, t.logo, t.created_at
+       ORDER BY t.created_at DESC`,
+      [sport],
+    )
+
+    return teams.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      sport: row.sport,
+      logo: row.logo,
+      players: Array.isArray(row.players) ? row.players : [],
+    }))
+  } catch (error) {
+    console.error("Error fetching teams by sport:", error)
+    throw new Error("Failed to fetch teams")
+  }
+}
+
+export async function getAllTeams(): Promise<Team[]> {
+  try {
+    const teams = await query(`
+      SELECT t.*, 
+             COALESCE(
+               json_agg(
+                 json_build_object(
+                   'id', p.id,
+                   'name', p.name,
+                   'number', p.number,
+                   'position', p.position
+                 ) ORDER BY p.number
+               ) FILTER (WHERE p.id IS NOT NULL),
+               '[]'::json
+             ) as players
+      FROM teams t
+      LEFT JOIN players p ON t.id = p.team_id
+      GROUP BY t.id, t.name, t.sport, t.logo, t.created_at
+      ORDER BY t.created_at DESC
+    `)
+
+    return teams.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      sport: row.sport,
+      logo: row.logo,
+      players: Array.isArray(row.players) ? row.players : [],
+    }))
+  } catch (error) {
+    console.error("Error fetching all teams:", error)
+    throw new Error("Failed to fetch teams")
+  }
+}
+
+export async function getTeamById(id: string): Promise<Team | null> {
+  try {
+    const teams = await query(
+      `SELECT t.*, 
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', p.id,
+                    'name', p.name,
+                    'number', p.number,
+                    'position', p.position
+                  ) ORDER BY p.number
+                ) FILTER (WHERE p.id IS NOT NULL),
+                '[]'::json
+              ) as players
+       FROM teams t
+       LEFT JOIN players p ON t.id = p.team_id
+       WHERE t.id = $1
+       GROUP BY t.id, t.name, t.sport, t.logo, t.created_at`,
+      [id],
+    )
+
+    if (teams.length === 0) return null
+
+    const row = teams[0]
+    return {
+      id: row.id,
+      name: row.name,
+      sport: row.sport,
+      logo: row.logo,
+      players: Array.isArray(row.players) ? row.players : [],
+    }
+  } catch (error) {
+    console.error("Error fetching team by ID:", error)
+    throw new Error("Failed to fetch team")
+  }
+}
+
+// Match functions
+export async function createMatch(matchData: {
+  sport: string
+  homeTeamId: string
+  awayTeamId: string
+  date: string
+  venue: string
+  status?: string
+}): Promise<Match> {
+  try {
+    const matchResult = await query(
+      `INSERT INTO matches (sport, home_team_id, away_team_id, match_date, venue, status)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        matchData.sport,
+        matchData.homeTeamId,
+        matchData.awayTeamId,
+        matchData.date,
+        matchData.venue,
+        matchData.status || "scheduled",
+      ],
+    )
+
+    const match = matchResult[0]
+    const homeTeam = await getTeamById(match.home_team_id)
+    const awayTeam = await getTeamById(match.away_team_id)
+
+    if (!homeTeam || !awayTeam) {
+      throw new Error("Teams not found")
+    }
+
+    return {
+      id: match.id,
+      sport: match.sport,
+      homeTeam,
+      awayTeam,
+      date: match.match_date,
+      venue: match.venue,
+      status: match.status,
+      score: match.score,
+    }
+  } catch (error) {
+    console.error("Error creating match:", error)
+    throw new Error("Failed to create match")
+  }
+}
+
+export async function getMatchesBySport(sport: string): Promise<Match[]> {
+  try {
+    const matches = await query(`SELECT * FROM matches WHERE sport = $1 ORDER BY match_date DESC`, [sport])
+
+    const result: Match[] = []
+    for (const match of matches) {
+      const homeTeam = await getTeamById(match.home_team_id)
+      const awayTeam = await getTeamById(match.away_team_id)
+
+      if (homeTeam && awayTeam) {
+        result.push({
+          id: match.id,
+          sport: match.sport,
+          homeTeam,
+          awayTeam,
+          date: match.match_date,
+          venue: match.venue,
+          status: match.status,
+          score: match.score,
+        })
+      }
+    }
+
+    return result
+  } catch (error) {
+    console.error("Error fetching matches by sport:", error)
+    throw new Error("Failed to fetch matches")
+  }
+}
+
+export async function getMatchesByStatus(status: "scheduled" | "live" | "completed"): Promise<Match[]> {
+  try {
+    const matches = await query(`SELECT * FROM matches WHERE status = $1 ORDER BY match_date DESC`, [status])
+
+    const result: Match[] = []
+    for (const match of matches) {
+      const homeTeam = await getTeamById(match.home_team_id)
+      const awayTeam = await getTeamById(match.away_team_id)
+
+      if (homeTeam && awayTeam) {
+        result.push({
+          id: match.id,
+          sport: match.sport,
+          homeTeam,
+          awayTeam,
+          date: match.match_date,
+          venue: match.venue,
+          status: match.status,
+          score: match.score,
+        })
+      }
+    }
+
+    return result
+  } catch (error) {
+    console.error("Error fetching matches by status:", error)
+    throw new Error("Failed to fetch matches")
+  }
+}
+
+export async function getMatchById(id: string): Promise<Match | null> {
+  try {
+    const matches = await query(`SELECT * FROM matches WHERE id = $1`, [id])
+
+    if (matches.length === 0) return null
+
+    const match = matches[0]
+    const homeTeam = await getTeamById(match.home_team_id)
+    const awayTeam = await getTeamById(match.away_team_id)
+
+    if (!homeTeam || !awayTeam) return null
+
+    return {
+      id: match.id,
+      sport: match.sport,
+      homeTeam,
+      awayTeam,
+      date: match.match_date,
+      venue: match.venue,
+      status: match.status,
+      score: match.score,
+    }
+  } catch (error) {
+    console.error("Error fetching match by ID:", error)
+    throw new Error("Failed to fetch match")
+  }
+}
+
+// Tournament functions
+export async function createTournament(tournamentData: {
+  name: string
+  sport: string
+  format: string
+  bracketType: string
+  startDate: string
+  teams: string[]
+  matches: any[]
+  teamLogos: Record<string, string>
+}): Promise<Tournament> {
+  try {
+    const tournamentResult = await query(
+      `INSERT INTO tournaments (name, sport, format, bracket_type, start_date, teams, matches, team_logos)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [
+        tournamentData.name,
+        tournamentData.sport,
+        tournamentData.format,
+        tournamentData.bracketType,
+        tournamentData.startDate,
+        JSON.stringify(tournamentData.teams),
+        JSON.stringify(tournamentData.matches),
+        JSON.stringify(tournamentData.teamLogos),
+      ],
+    )
+
+    const tournament = tournamentResult[0]
+
+    return {
+      id: tournament.id,
+      name: tournament.name,
+      sport: tournament.sport,
+      format: tournament.format,
+      bracketType: tournament.bracket_type,
+      status: tournament.status,
+      startDate: tournament.start_date,
+      teams: tournament.teams || [],
+      matches: tournament.matches || [],
+      teamLogos: tournament.team_logos || {},
+    }
+  } catch (error) {
+    console.error("Error creating tournament:", error)
+    throw new Error("Failed to create tournament")
+  }
+}
+
+export async function getAllTournaments(): Promise<Tournament[]> {
+  try {
+    const tournaments = await query(`
+      SELECT * FROM tournaments ORDER BY created_at DESC
+    `)
+
+    return tournaments.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      sport: row.sport,
+      format: row.format,
+      bracketType: row.bracket_type,
+      status: row.status,
+      startDate: row.start_date,
+      teams: row.teams || [],
+      matches: row.matches || [],
+      teamLogos: row.team_logos || {},
+    }))
+  } catch (error) {
+    console.error("Error fetching tournaments:", error)
+    throw new Error("Failed to fetch tournaments")
+  }
+}
+
+// User functions
+export async function getUserByEmail(email: string): Promise<User | null> {
+  try {
+    const users = await query(`SELECT * FROM users WHERE email = $1`, [email])
+
+    if (users.length === 0) return null
+
+    const user = users[0]
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      role: user.role,
+      avatarUrl: user.avatar_url,
+    }
+  } catch (error) {
+    console.error("Error fetching user by email:", error)
+    throw new Error("Failed to fetch user")
+  }
+}
+
+export async function createUser(userData: {
+  username: string
+  email: string
+  fullName: string
+  password: string
+  role?: string
+}): Promise<User> {
+  try {
+    const userResult = await query(
+      `INSERT INTO users (username, email, full_name, password, role)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [userData.username, userData.email, userData.fullName, userData.password, userData.role || "user"],
+    )
+
+    const user = userResult[0]
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: user.full_name,
+      role: user.role,
+      avatarUrl: user.avatar_url,
+    }
+  } catch (error) {
+    console.error("Error creating user:", error)
+    throw new Error("Failed to create user")
+  }
+}
