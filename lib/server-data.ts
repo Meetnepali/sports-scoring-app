@@ -1477,7 +1477,7 @@ export async function createUserInDB(userData: {
 }): Promise<User> {
   try {
     // Hash the password before storing
-    const hashedPassword = hashPassword(userData.password)
+    const hashedPassword = await hashPassword(userData.password)
     
     const userResult = await query(
       `INSERT INTO users (username, email, full_name, phone_number, password, role)

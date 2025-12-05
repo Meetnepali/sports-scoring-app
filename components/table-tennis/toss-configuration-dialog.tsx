@@ -34,6 +34,7 @@ export function TossConfigurationDialog({
   const [tossWinner, setTossWinner] = useState<string>("")
   const [tossDecision, setTossDecision] = useState<"serve" | "table_side" | "">("")
   const [tableSideChoice, setTableSideChoice] = useState<"home" | "away" | "">("")
+  const [oppositeTeamSideChoice, setOppositeTeamSideChoice] = useState<"home" | "away" | "">("")
   const [firstSetType, setFirstSetType] = useState<"singles" | "doubles" | "">("")
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
@@ -53,6 +54,16 @@ export function TossConfigurationDialog({
       toast({
         title: "Incomplete Information",
         description: "Please select which table side to take",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate opposite team's side selection if toss decision was serve
+    if (tossDecision === "serve" && !oppositeTeamSideChoice) {
+      toast({
+        title: "Incomplete Information",
+        description: "Please select which table side the opposite team wants",
         variant: "destructive",
       })
       return
@@ -79,10 +90,9 @@ export function TossConfigurationDialog({
         selectedTableSide = tableSideChoice as "home" | "away"
         servingTeam = tableSideChoice === "home" ? "away" : "home"
       } else {
-        // Toss winner chose to serve first
+        // Toss winner chose to serve first, opposite team chooses table side
         servingTeam = tossWinner === homeTeam.id ? "home" : "away"
-        // Opposite team gets table side choice (we'll default to their original side)
-        selectedTableSide = servingTeam === "home" ? "away" : "home"
+        selectedTableSide = oppositeTeamSideChoice as "home" | "away"
       }
 
       // Save toss configuration
@@ -199,7 +209,12 @@ export function TossConfigurationDialog({
               <Label htmlFor="toss-decision" className="text-base font-semibold">
                 What did {tossWinnerName} choose?
               </Label>
-              <Select value={tossDecision} onValueChange={(val) => setTossDecision(val as "serve" | "table_side")}>
+              <Select value={tossDecision} onValueChange={(val) => {
+                setTossDecision(val as "serve" | "table_side")
+                // Reset side choices when changing decision
+                setTableSideChoice("")
+                setOppositeTeamSideChoice("")
+              }}>
                 <SelectTrigger id="toss-decision" className="h-12">
                   <SelectValue placeholder="Select decision" />
                 </SelectTrigger>
@@ -221,7 +236,7 @@ export function TossConfigurationDialog({
             </div>
           )}
 
-          {/* Table Side Selection (if applicable) */}
+          {/* Table Side Selection (if toss winner chose table side) */}
           {tossWinner && tossDecision === "table_side" && (
             <div className="space-y-2">
               <Label htmlFor="table-side" className="text-base font-semibold">
@@ -252,8 +267,39 @@ export function TossConfigurationDialog({
             </div>
           )}
 
+          {/* Opposite Team Side Selection (if toss winner chose serve) */}
+          {tossWinner && tossDecision === "serve" && (
+            <div className="space-y-2">
+              <Label htmlFor="opposite-side" className="text-base font-semibold">
+                Which table side does {tossWinner === homeTeam.id ? awayTeam.name : homeTeam.name} want?
+              </Label>
+              <Select value={oppositeTeamSideChoice} onValueChange={(val) => setOppositeTeamSideChoice(val as "home" | "away")}>
+                <SelectTrigger id="opposite-side" className="h-12">
+                  <SelectValue placeholder="Select table side" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="home">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">⬅️</span>
+                      <span className="font-medium">Home Table Side (Left)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="away">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">➡️</span>
+                      <span className="font-medium">Away Table Side (Right)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Note: {tossWinnerName} will serve first
+              </p>
+            </div>
+          )}
+
           {/* First Set Type Selection */}
-          {tossWinner && tossDecision && (tossDecision === "serve" || tableSideChoice) && (
+          {tossWinner && tossDecision && (tossDecision === "serve" ? oppositeTeamSideChoice : tableSideChoice) && (
             <div className="space-y-2">
               <Label htmlFor="first-set-type" className="text-base font-semibold">
                 What type will be played for Set 1?
@@ -281,7 +327,7 @@ export function TossConfigurationDialog({
           )}
 
           {/* Summary */}
-          {tossWinner && tossDecision && (tossDecision === "serve" || tableSideChoice) && firstSetType && (
+          {tossWinner && tossDecision && (tossDecision === "serve" ? oppositeTeamSideChoice : tableSideChoice) && firstSetType && (
             <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
               <h4 className="font-semibold text-green-900 mb-2">Configuration Summary:</h4>
               <ul className="text-sm text-green-800 space-y-1">
@@ -305,6 +351,14 @@ export function TossConfigurationDialog({
                   </span>
                 </li>
                 <li>
+                  • Table Side Assignment:{" "}
+                  <span className="font-bold">
+                    {tossDecision === "table_side"
+                      ? `${tableSideChoice === "home" ? "Home" : "Away"} (${tossWinnerName})`
+                      : `${oppositeTeamSideChoice === "home" ? "Home" : "Away"} (${tossWinner === homeTeam.id ? awayTeam.name : homeTeam.name})`}
+                  </span>
+                </li>
+                <li>
                   • Set 1 Type: <span className="font-bold capitalize">{firstSetType}</span>
                 </li>
               </ul>
@@ -318,7 +372,7 @@ export function TossConfigurationDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || !tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || !firstSetType}
+            disabled={saving || !tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || (tossDecision === "serve" && !oppositeTeamSideChoice) || !firstSetType}
             className="flex-1"
           >
             {saving ? "Saving..." : "Confirm Toss"}

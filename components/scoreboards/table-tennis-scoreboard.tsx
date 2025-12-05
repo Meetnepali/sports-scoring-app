@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import TableTennisCourt from "@/components/table-tennis-court"
 import { TossConfigurationDialog } from "@/components/table-tennis/toss-configuration-dialog"
 import { useAuth } from "@/lib/auth-context"
+import { updateMatchScore } from "@/lib/client-api"
 
 interface TableTennisScoreboardProps {
   match: Match
@@ -28,11 +29,13 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   const defaultTotalSets = 3 // Best of 3
   
   const initialScore = match.score ? {
-    sets: Array.isArray(match.score.sets) ? match.score.sets.map((set: any) => ({
-      home: Number(set.home) || 0,
-      away: Number(set.away) || 0,
-      type: set.type || "singles" // singles or doubles
-    })) : Array.from({ length: defaultTotalSets }, () => ({ home: 0, away: 0, type: "singles" })),
+    sets: Array.isArray(match.score.sets) && match.score.sets.length > 0 
+      ? match.score.sets.map((set: any) => ({
+          home: Number(set?.home) || 0,
+          away: Number(set?.away) || 0,
+          type: set?.type || "singles" // singles or doubles
+        })) 
+      : Array.from({ length: defaultTotalSets }, () => ({ home: 0, away: 0, type: "singles" })),
     currentSet: Number(match.score.currentSet) || 0,
     servingPlayer: match.score.servingPlayer || "home",
     pointsToWin: Number(match.score.pointsToWin) || defaultPointsToWin,
@@ -48,8 +51,11 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   }
 
   const [score, setScore] = useState(initialScore)
-  const [currentSet, setCurrentSet] = useState(Number(score.currentSet) || 0)
-  const [servingPlayer, setServingPlayer] = useState(score.servingPlayer)
+  const [currentSet, setCurrentSet] = useState(() => {
+    const setIndex = Number(initialScore.currentSet)
+    return !isNaN(setIndex) && setIndex >= 0 ? setIndex : 0
+  })
+  const [servingPlayer, setServingPlayer] = useState(score.servingPlayer || "home")
   const [isDoubles, setIsDoubles] = useState(score.isDoubles || false)
   const [showAnimation, setShowAnimation] = useState<{ team: "home" | "away"; value: number } | null>(null)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
@@ -133,11 +139,13 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   useEffect(() => {
     if (match.score) {
       const newScore = {
-        sets: Array.isArray(match.score.sets) ? match.score.sets.map((set: any) => ({
-          home: Number(set.home) || 0,
-          away: Number(set.away) || 0,
-          type: set.type || "singles"
-        })) : score.sets,
+        sets: Array.isArray(match.score.sets) && match.score.sets.length > 0
+          ? match.score.sets.map((set: any) => ({
+              home: Number(set?.home) || 0,
+              away: Number(set?.away) || 0,
+              type: set?.type || "singles"
+            })) 
+          : score.sets,
         currentSet: Number(match.score.currentSet) ?? score.currentSet,
         servingPlayer: match.score.servingPlayer || score.servingPlayer,
         pointsToWin: Number(match.score.pointsToWin) || score.pointsToWin,
@@ -150,7 +158,8 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
           newScore.currentSet !== score.currentSet ||
           newScore.servingPlayer !== score.servingPlayer) {
         setScore(newScore)
-        setCurrentSet(newScore.currentSet)
+        const validSetIndex = !isNaN(newScore.currentSet) && newScore.currentSet >= 0 ? newScore.currentSet : 0
+        setCurrentSet(validSetIndex)
         setServingPlayer(newScore.servingPlayer)
         setIsDoubles(newScore.isDoubles)
       }
@@ -207,6 +216,13 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   const updateScore = (team: "home" | "away", amount: number) => {
     setScore((prevScore: any) => {
       const newSets = [...prevScore.sets]
+      
+      // Safety check: ensure current set exists
+      if (!newSets[currentSet]) {
+        console.error(`Set at index ${currentSet} does not exist`)
+        return prevScore
+      }
+      
       const currentScore = Number(newSets[currentSet][team]) || 0
       const opponentTeam = team === "home" ? "away" : "home"
       const opponentScore = Number(newSets[currentSet][opponentTeam]) || 0
@@ -402,6 +418,43 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
     }
   }, [currentSet, canScore, isAdmin])
 
+  // Persist score changes to database (with debouncing)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Only persist if admin is actively scoring
+    if (!isAdmin || !canScore) return
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Debounce the save operation (wait 500ms after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const scoreToSave = {
+          sets: score.sets,
+          currentSet,
+          servingPlayer,
+          pointsToWin: score.pointsToWin,
+          setsToWin: score.setsToWin,
+          isDoubles,
+        }
+        await updateMatchScore(match.id, scoreToSave)
+      } catch (error) {
+        console.error("Error auto-saving score:", error)
+        // Don't show error toast for auto-save to avoid spam
+      }
+    }, 500)
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [score.sets, currentSet, servingPlayer, score.pointsToWin, score.setsToWin, isDoubles, isAdmin, canScore, match.id])
+
   // Get set wins
   const getSetWins = () => {
     const pointsToWin = score.pointsToWin || tableTennisConfig?.pointsToWinPerSet || 11
@@ -514,63 +567,65 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               </div>
             </div>
 
-            {canScore && isAdmin && (
-              <>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                    <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].home}</div>
-                    <div className="flex justify-center gap-4">
-                      <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
+            {/* Current Set Score - Visible to Everyone */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
+                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
+                {canScore && isAdmin && (
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </div>
+                )}
+              </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                    <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].away}</div>
-                    <div className="flex justify-center gap-4">
-                      <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
+                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
+                {canScore && isAdmin && (
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
+                )}
+              </div>
+            </div>
 
-                {/* Set Information */}
-                <div className="text-center mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Badge variant={score.sets[currentSet]?.type === "doubles" ? "default" : "outline"}>
-                      {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
-                    </Badge>
-                    {!isAdmin && (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                        Read-Only
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-green-900">
-                    Set {currentSet + 1} of {totalSets} • First to {pointsToWin} points (win by 2) • Best of {totalSets} sets
-                  </p>
-                  {score.sets[currentSet].home >= pointsToWin - 1 && score.sets[currentSet].away >= pointsToWin - 1 ? (
-                    <p className="text-xs text-green-700 mt-1">
-                      ⚡ Deuce! Server alternates every point. Win by 2 required!
-                    </p>
-                  ) : (
-                    <p className="text-xs text-green-700 mt-1">
-                      Server alternates every 2 points
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
+            {/* Set Information - Visible to Everyone */}
+            <div className="text-center mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Badge variant={score.sets[currentSet]?.type === "doubles" ? "default" : "outline"}>
+                  {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
+                </Badge>
+                {!isAdmin && (
+                  <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                    Read-Only
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm font-medium text-green-900">
+                Set {currentSet + 1} of {totalSets} • First to {pointsToWin} points (win by 2) • Best of {totalSets} sets
+              </p>
+              {(score.sets[currentSet]?.home || 0) >= pointsToWin - 1 && (score.sets[currentSet]?.away || 0) >= pointsToWin - 1 ? (
+                <p className="text-xs text-green-700 mt-1">
+                  ⚡ Deuce! Server alternates every point. Win by 2 required!
+                </p>
+              ) : (
+                <p className="text-xs text-green-700 mt-1">
+                  Server alternates every 2 points
+                </p>
+              )}
+            </div>
+            
             {!isAdmin && (
               <div className="text-center mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-900">
@@ -598,7 +653,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
-                    {score.sets[currentSet].home}
+                    {score.sets[currentSet]?.home || 0}
                     {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
                   </div>
                 </div>
@@ -609,7 +664,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
 
                 <div className="text-center">
                   <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
-                    {score.sets[currentSet].away}
+                    {score.sets[currentSet]?.away || 0}
                     {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
                   </div>
                 </div>
@@ -688,7 +743,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].home}</div>
+                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -710,7 +765,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
 
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].away}</div>
+                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -757,6 +812,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               ))}
             </div>
           </TabsContent>
+          )}
         </Tabs>
       </CardContent>
 
@@ -807,37 +863,38 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
       {/* Set Type Selection Dialog - Only for admins */}
       {isAdmin && (
         <Dialog open={showSetTypeDialog} onOpenChange={setShowSetTypeDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              Select Set Type for Set {currentSet + 1}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              What type of set will be played for Set {currentSet + 1}?
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center gap-2"
-                onClick={() => handleSetTypeSelect("singles")}
-              >
-                <Users className="h-6 w-6" />
-                <span className="font-semibold">Singles</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center gap-2"
-                onClick={() => handleSetTypeSelect("doubles")}
-              >
-                <Users className="h-6 w-6" />
-                <span className="font-semibold">Doubles</span>
-              </Button>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                Select Set Type for Set {currentSet + 1}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                What type of set will be played for Set {currentSet + 1}?
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                  onClick={() => handleSetTypeSelect("singles")}
+                >
+                  <Users className="h-6 w-6" />
+                  <span className="font-semibold">Singles</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                  onClick={() => handleSetTypeSelect("doubles")}
+                >
+                  <Users className="h-6 w-6" />
+                  <span className="font-semibold">Doubles</span>
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   )
 }

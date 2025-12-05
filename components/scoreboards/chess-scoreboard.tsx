@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import ChessBoard from "@/components/chess-board"
 import { TossConfigurationDialog } from "@/components/chess/toss-configuration-dialog"
+import { updateMatchScore } from "@/lib/client-api"
 
 interface ChessScoreboardProps {
   match: Match
@@ -82,6 +83,40 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
       }
     }
   }, [match.score, match.status])
+
+  // Persist score changes to database (with debouncing)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Only persist if match is live and config is completed
+    const canScore = (match.status === "live" || match.status === "started") && chessConfig?.configCompleted
+    if (!canScore) return
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Debounce the save operation (wait 500ms after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const scoreToSave = {
+          games,
+          teamScore,
+        }
+        await updateMatchScore(match.id, scoreToSave)
+      } catch (error) {
+        console.error("Error auto-saving score:", error)
+        // Don't show error toast for auto-save to avoid spam
+      }
+    }, 500)
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [games, teamScore, match.id, match.status, chessConfig?.configCompleted])
 
   // Handle toss configuration completion
   const handleTossComplete = async (config: any) => {

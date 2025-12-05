@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import BadmintonCourt from "@/components/badminton-court"
 import { TossConfigurationDialog } from "@/components/badminton/toss-configuration-dialog"
 import { useAuth } from "@/lib/auth-context"
+import { updateMatchScore } from "@/lib/client-api"
 
 interface BadmintonScoreboardProps {
   match: Match
@@ -48,7 +49,10 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
   }
 
   const [score, setScore] = useState(initialScore)
-  const [currentGame, setCurrentGame] = useState(Number(score.currentGame) || 0)
+  const [currentGame, setCurrentGame] = useState(() => {
+    const gameIndex = Number(initialScore.currentGame)
+    return !isNaN(gameIndex) && gameIndex >= 0 ? gameIndex : 0
+  })
   const [servingPlayer, setServingPlayer] = useState(score.servingPlayer)
   const [isDoubles, setIsDoubles] = useState(score.isDoubles || false)
   const [showAnimation, setShowAnimation] = useState<{ team: "home" | "away"; value: number } | null>(null)
@@ -217,6 +221,13 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
   const updateScore = (team: "home" | "away", amount: number) => {
     setScore((prevScore: any) => {
       const newGames = [...prevScore.games]
+      
+      // Safety check: ensure current game exists
+      if (!newGames[currentGame]) {
+        console.error(`Game at index ${currentGame} does not exist`)
+        return prevScore
+      }
+      
       const currentScore = Number(newGames[currentGame][team]) || 0
       const opponentTeam = team === "home" ? "away" : "home"
       const opponentScore = Number(newGames[currentGame][opponentTeam]) || 0
@@ -402,6 +413,43 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
     }
   }, [currentGame, canScore, isAdmin])
 
+  // Persist score changes to database (with debouncing)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Only persist if admin is actively scoring
+    if (!isAdmin || !canScore) return
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Debounce the save operation (wait 500ms after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const scoreToSave = {
+          games: score.games,
+          currentGame,
+          servingPlayer,
+          pointsToWin: score.pointsToWin,
+          gamesToWin: score.gamesToWin,
+          isDoubles,
+        }
+        await updateMatchScore(match.id, scoreToSave)
+      } catch (error) {
+        console.error("Error auto-saving score:", error)
+        // Don't show error toast for auto-save to avoid spam
+      }
+    }, 500)
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [score.games, currentGame, servingPlayer, score.pointsToWin, score.gamesToWin, isDoubles, isAdmin, canScore, match.id])
+
   // Get game wins
   const getGameWins = () => {
     const pointsToWin = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || 21
@@ -515,59 +563,61 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
               </div>
             </div>
 
-            {canScore && (
-              <>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                    <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame].home}</div>
-                    <div className="flex justify-center gap-4">
-                      <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
+            {/* Current Game Score - Visible to Everyone */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
+                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.home || 0}</div>
+                {canScore && isAdmin && (
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </div>
+                )}
+              </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                    <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame].away}</div>
-                    <div className="flex justify-center gap-4">
-                      <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
-                        <MinusCircle className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
-                        <PlusCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
+                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.away || 0}</div>
+                {canScore && isAdmin && (
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
+                )}
+              </div>
+            </div>
 
-                {/* Game Information */}
-                <div className="text-center mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Badge variant={score.games[currentGame]?.type === "doubles" ? "default" : "outline"}>
-                      {score.games[currentGame]?.type === "doubles" ? "Doubles" : "Singles"}
-                    </Badge>
-                    {!isAdmin && (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                        Read-Only
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-yellow-900">
-                    Game {currentGame + 1} of {totalGames} • First to {pointsToWin} points (win by 2, max {maxPoints})
-                  </p>
-                  {score.games[currentGame].home >= pointsToWin - 1 && score.games[currentGame].away >= pointsToWin - 1 && (
-                    <p className="text-xs text-yellow-700 mt-1">
-                      ⚡ Deuce! Win by 2 or first to {maxPoints} points
-                    </p>
-                  )}
-                </div>
-              </>
-            )}
+            {/* Game Information - Visible to Everyone */}
+            <div className="text-center mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Badge variant={score.games[currentGame]?.type === "doubles" ? "default" : "outline"}>
+                  {score.games[currentGame]?.type === "doubles" ? "Doubles" : "Singles"}
+                </Badge>
+                {!isAdmin && (
+                  <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                    Read-Only
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm font-medium text-yellow-900">
+                Game {currentGame + 1} of {totalGames} • First to {pointsToWin} points (win by 2, max {maxPoints})
+              </p>
+              {(score.games[currentGame]?.home || 0) >= pointsToWin - 1 && (score.games[currentGame]?.away || 0) >= pointsToWin - 1 && (
+                <p className="text-xs text-yellow-700 mt-1">
+                  ⚡ Deuce! Win by 2 or first to {maxPoints} points
+                </p>
+              )}
+            </div>
+            
             {!isAdmin && (
               <div className="text-center mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-900">
@@ -595,7 +645,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
-                    {score.games[currentGame].home}
+                    {score.games[currentGame]?.home || 0}
                     {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
                   </div>
                 </div>
@@ -606,7 +656,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
 
                 <div className="text-center">
                   <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
-                    {score.games[currentGame].away}
+                    {score.games[currentGame]?.away || 0}
                     {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
                   </div>
                 </div>
@@ -686,7 +736,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame].home}</div>
+                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.home || 0}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -708,7 +758,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
 
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame].away}</div>
+                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.away || 0}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -806,37 +856,38 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
       {/* Game Type Selection Dialog - Only for admins */}
       {isAdmin && (
         <Dialog open={showGameTypeDialog} onOpenChange={setShowGameTypeDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              Select Game Type for Game {currentGame + 1}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              What type of game will be played for Game {currentGame + 1}?
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center gap-2"
-                onClick={() => handleGameTypeSelect("singles")}
-              >
-                <Users className="h-6 w-6" />
-                <span className="font-semibold">Singles</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-20 flex flex-col items-center justify-center gap-2"
-                onClick={() => handleGameTypeSelect("doubles")}
-              >
-                <Users className="h-6 w-6" />
-                <span className="font-semibold">Doubles</span>
-              </Button>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                Select Game Type for Game {currentGame + 1}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                What type of game will be played for Game {currentGame + 1}?
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                  onClick={() => handleGameTypeSelect("singles")}
+                >
+                  <Users className="h-6 w-6" />
+                  <span className="font-semibold">Singles</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col items-center justify-center gap-2"
+                  onClick={() => handleGameTypeSelect("doubles")}
+                >
+                  <Users className="h-6 w-6" />
+                  <span className="font-semibold">Doubles</span>
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   )
 }

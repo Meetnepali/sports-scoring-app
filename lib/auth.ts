@@ -1,5 +1,4 @@
 import { query } from "./database"
-import { randomBytes, createHash } from "crypto"
 
 export interface User {
   id: string
@@ -20,18 +19,25 @@ export interface AuthResult {
   error?: string
 }
 
-export function generateToken(): string {
-  return randomBytes(32).toString("hex")
+// Generate token using Web Crypto API (compatible with Edge runtime)
+export async function generateToken(): Promise<string> {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-// Simple password hashing function
-export function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex');
+// Simple password hashing function using Web Crypto API (compatible with Edge runtime)
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 // Verify password
-export function verifyPassword(plainPassword: string, hashedPassword: string): boolean {
-  const hashedInput = hashPassword(plainPassword);
+export async function verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  const hashedInput = await hashPassword(plainPassword);
   return hashedInput === hashedPassword;
 }
 
@@ -55,7 +61,7 @@ export async function createUser(userData: {
     }
 
     // Hash the password before storing
-    const hashedPassword = hashPassword(userData.password);
+    const hashedPassword = await hashPassword(userData.password);
     
     // Create user with hashed password
     const result = await query(
@@ -66,7 +72,7 @@ export async function createUser(userData: {
     )
 
     const user = result[0]
-    const token = generateToken()
+    const token = await generateToken()
 
     // Create session
     await query(
@@ -97,12 +103,12 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
     const user = result[0]
 
     // Verify password using secure comparison
-    if (!verifyPassword(password, user.password)) {
+    if (!(await verifyPassword(password, user.password))) {
       return { success: false, error: "Invalid email or password" }
     }
 
     // Generate token
-    const token = generateToken()
+    const token = await generateToken()
 
     // Create session
     await query(
@@ -166,7 +172,7 @@ export async function logoutUser(token: string): Promise<boolean> {
 export async function createSession(userId: string): Promise<string> {
   try {
     // Generate a new session token
-    const token = generateToken()
+    const token = await generateToken()
     
     // Create session with expiration date (7 days from now)
     await query(

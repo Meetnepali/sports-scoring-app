@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import type { VolleyballScore, VolleyballTeam, VolleyballPlayer, VolleyballPosition, VolleyballMatchConfig } from "@/lib/volleyball-types"
 import { isLibero, isFrontRowPosition, isBackRowPosition } from "@/lib/volleyball-types"
@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast"
 import VolleyballCourt from "@/components/volleyball-court"
 import { TossConfigurationDialog } from "@/components/volleyball/toss-configuration-dialog"
+import { updateMatchScore } from "@/lib/client-api"
+import { useAuth } from "@/lib/auth-context"
 
 interface VolleyballScoreboardProps {
   match: Match
@@ -22,6 +24,7 @@ interface VolleyballScoreboardProps {
 
 export default function VolleyballScoreboard({ match }: VolleyballScoreboardProps) {
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
   
   // Initialize volleyball-specific data
   const initializeTeam = (team: any): VolleyballTeam => {
@@ -75,7 +78,10 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
       }
 
   const [score, setScore] = useState<VolleyballScore>(initialScore)
-  const [currentSet, setCurrentSet] = useState(Number(score.currentSet) || 0)
+  const [currentSet, setCurrentSet] = useState(() => {
+    const setIndex = Number(initialScore.currentSet)
+    return !isNaN(setIndex) && setIndex >= 0 ? setIndex : 0
+  })
   const [editingPlayer, setEditingPlayer] = useState<{
     team: "home" | "away"
     player: VolleyballPlayer
@@ -188,6 +194,36 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
     }
   }, [match.status, volleyballConfig, showTossDialog, showAddPlayerDialog])
 
+  // Persist score changes to database (with debouncing)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Only persist if match is live and config is completed
+    const canScore = (match.status === "live" || match.status === "started") && volleyballConfig?.configCompleted
+    if (!canScore) return
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Debounce the save operation (wait 500ms after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await updateMatchScore(match.id, score)
+      } catch (error) {
+        console.error("Error auto-saving score:", error)
+        // Don't show error toast for auto-save to avoid spam
+      }
+    }, 500)
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [score, match.id, match.status, volleyballConfig?.configCompleted])
+
   // Rotate players clockwise (official volleyball rotation)
   // Libero can only be in back row (1, 5, 6). When libero would rotate to front (2, 3, 4), 
   // replace with 7th player (non-libero substitute)
@@ -296,6 +332,13 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
   const updateScore = (team: "home" | "away", amount: number) => {
     setScore((prevScore) => {
       const newSets = [...prevScore.sets]
+      
+      // Safety check: ensure current set exists
+      if (!newSets[currentSet]) {
+        console.error(`Set at index ${currentSet} does not exist`)
+        return prevScore
+      }
+      
       const currentScore = newSets[currentSet][team]
       const opponentTeam = team === "home" ? "away" : "home"
       const opponentScore = newSets[currentSet][opponentTeam]
@@ -690,64 +733,73 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
               onChangeServe={changeServe}
             />
 
-            {match.status === "live" && (
+            {/* Current Set Score - Visible to Everyone when match is live or completed */}
+            {(match.status === "live" || match.status === "completed") && (
               <div className="grid grid-cols-2 gap-6 mt-4">
                 <div className="bg-gray-50 p-4 rounded-lg border">
                   <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].home}</div>
-                  <div className="flex justify-center gap-4 mb-3">
-                    <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex justify-center">
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      onClick={() => rotateTeamClockwise("home")}
-                      className="text-xs"
-                    >
-                      🔄 Rotate
-                    </Button>
-                  </div>
+                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
+                  {isAdmin && match.status === "live" && (
+                    <>
+                      <div className="flex justify-center gap-4 mb-3">
+                        <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex justify-center">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => rotateTeamClockwise("home")}
+                          className="text-xs"
+                        >
+                          🔄 Rotate
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg border">
                   <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet].away}</div>
-                  <div className="flex justify-center gap-4 mb-3">
-                    <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex justify-center">
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      onClick={() => rotateTeamClockwise("away")}
-                      className="text-xs"
-                    >
-                      🔄 Rotate
-                    </Button>
-                  </div>
+                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
+                  {isAdmin && match.status === "live" && (
+                    <>
+                      <div className="flex justify-center gap-4 mb-3">
+                        <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex justify-center">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => rotateTeamClockwise("away")}
+                          className="text-xs"
+                        >
+                          🔄 Rotate
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Set Information */}
-            {match.status === "live" && (
+            {/* Set Information - Visible to Everyone */}
+            {(match.status === "live" || match.status === "completed") && (
               <div className="text-center mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm font-medium text-blue-900">
                   Set {currentSet + 1} of {score.numberOfSets || 5} • First to {currentSet === 4 ? "15" : "25"} points (win by 2)
                 </p>
                 {(() => {
-                  const currentSetScore = score.sets[currentSet]
+                  const currentSetScore = score.sets[currentSet] || { home: 0, away: 0 }
                   const isSetFive = currentSet === 4
                   const pointsToWin = isSetFive ? 15 : 25
                   const isDeuceRange = currentSetScore.home >= (pointsToWin - 2) && currentSetScore.away >= (pointsToWin - 2)
@@ -771,6 +823,15 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
                   }
                   return null
                 })()}
+              </div>
+            )}
+            
+            {!isAdmin && (match.status === "live" || match.status === "completed") && (
+              <div className="text-center mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-900">
+                  <Badge variant="outline" className="bg-blue-100 text-blue-700 mr-2">Read-Only Mode</Badge>
+                  You can view scores but cannot make changes. Admin access required to update scores.
+                </p>
               </div>
             )}
           </TabsContent>

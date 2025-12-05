@@ -69,13 +69,15 @@ export default function CreateMatchPage() {
   // Volleyball-specific configuration
   const [volleyballNumberOfSets, setVolleyballNumberOfSets] = useState<"3" | "5">("5")
 
-  // Badminton-specific configuration
-  const [badmintonGamesToWin, setBadmintonGamesToWin] = useState<"2" | "3">("2")
-  const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
-
   // Table Tennis-specific configuration
   const [tableTennisSetsToWin, setTableTennisSetsToWin] = useState<"2" | "3" | "4">("2")
   const [tableTennisPointsToWin, setTableTennisPointsToWin] = useState<"11" | "21">("11")
+  const [tableTennisSetTypes, setTableTennisSetTypes] = useState<Array<"singles" | "doubles">>([])
+
+  // Badminton-specific configuration
+  const [badmintonGamesToWin, setBadmintonGamesToWin] = useState<"2" | "3">("2")
+  const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
+  const [badmintonGameTypes, setBadmintonGameTypes] = useState<Array<"singles" | "doubles">>([])
 
   // Fetch all teams from database
   useEffect(() => {
@@ -113,6 +115,26 @@ export default function CreateMatchPage() {
       setFilteredTeams(allTeams)
     }
   }, [selectedSport, allTeams])
+
+  // Calculate and initialize set types when Table Tennis format changes
+  useEffect(() => {
+    if (selectedSport === "table-tennis") {
+      const totalSets = tableTennisSetsToWin === "2" ? 3 : tableTennisSetsToWin === "3" ? 5 : 7
+      if (tableTennisSetTypes.length !== totalSets) {
+        setTableTennisSetTypes(Array(totalSets).fill("singles" as "singles" | "doubles"))
+      }
+    }
+  }, [selectedSport, tableTennisSetsToWin])
+
+  // Calculate and initialize game types when Badminton format changes
+  useEffect(() => {
+    if (selectedSport === "badminton") {
+      const totalGames = badmintonGamesToWin === "2" ? 3 : 5
+      if (badmintonGameTypes.length !== totalGames) {
+        setBadmintonGameTypes(Array(totalGames).fill("singles" as "singles" | "doubles"))
+      }
+    }
+  }, [selectedSport, badmintonGamesToWin])
 
   const sportNames: Record<string, string> = {
     cricket: "Cricket",
@@ -248,6 +270,7 @@ export default function CreateMatchPage() {
             body: JSON.stringify({
               gamesToWin: parseInt(badmintonGamesToWin),
               pointsToWinPerGame: parseInt(badmintonPointsToWin),
+              gameTypes: badmintonGameTypes, // Pre-configured game types
               configCompleted: false, // Will be completed when toss is done
             }),
           })
@@ -266,6 +289,7 @@ export default function CreateMatchPage() {
             body: JSON.stringify({
               setsToWin: parseInt(tableTennisSetsToWin),
               pointsToWinPerSet: parseInt(tableTennisPointsToWin),
+              setTypes: tableTennisSetTypes, // Pre-configured set types
               configCompleted: false, // Will be completed when toss is done
             }),
           })
@@ -462,6 +486,39 @@ export default function CreateMatchPage() {
                   <p className="text-xs text-yellow-600">
                     Note: Toss for serve/court side will be conducted when the match starts for the first time.
                   </p>
+                  
+                  {/* Game Type Selection for each game */}
+                  {badmintonGameTypes.length > 0 && (
+                    <div className="space-y-3 mt-4">
+                      <Label className="text-base font-semibold">Game Types Configuration *</Label>
+                      <div className="grid grid-cols-1 gap-3">
+                        {badmintonGameTypes.map((gameType, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                            <span className="font-medium min-w-[70px]">Game {index + 1}:</span>
+                            <Select
+                              value={gameType}
+                              onValueChange={(val) => {
+                                const newTypes = [...badmintonGameTypes]
+                                newTypes[index] = val as "singles" | "doubles"
+                                setBadmintonGameTypes(newTypes)
+                              }}
+                            >
+                              <SelectTrigger className="h-10 flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="singles">Singles</SelectItem>
+                                <SelectItem value="doubles">Doubles</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-yellow-700">
+                        Configure whether each game will be played as singles or doubles
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -504,6 +561,39 @@ export default function CreateMatchPage() {
                   <p className="text-xs text-green-600">
                     Note: Toss for serve/table side will be conducted when the match starts for the first time.
                   </p>
+                  
+                  {/* Set Type Selection for each set */}
+                  {tableTennisSetTypes.length > 0 && (
+                    <div className="space-y-3 mt-4">
+                      <Label className="text-base font-semibold">Set Types Configuration *</Label>
+                      <div className="grid grid-cols-1 gap-3">
+                        {tableTennisSetTypes.map((setType, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                            <span className="font-medium min-w-[60px]">Set {index + 1}:</span>
+                            <Select
+                              value={setType}
+                              onValueChange={(val) => {
+                                const newTypes = [...tableTennisSetTypes]
+                                newTypes[index] = val as "singles" | "doubles"
+                                setTableTennisSetTypes(newTypes)
+                              }}
+                            >
+                              <SelectTrigger className="h-10 flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="singles">Singles</SelectItem>
+                                <SelectItem value="doubles">Doubles</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-green-700">
+                        Configure whether each set will be played as singles or doubles
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

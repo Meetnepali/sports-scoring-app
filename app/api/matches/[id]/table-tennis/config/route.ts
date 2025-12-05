@@ -66,6 +66,7 @@ export async function POST(
     const {
       setsToWin,
       pointsToWinPerSet,
+      setTypes, // Pre-configured set types array
       tossWinnerTeamId,
       tossDecision,
       selectedTableSide,
@@ -117,21 +118,36 @@ export async function POST(
         )
       }
 
-      // If configuration is completed, update the match score with serving team
-      if (configCompleted && servingTeam) {
-        const matchResult = await query("SELECT score FROM matches WHERE id = $1", [id])
+      // Update match score with serving team and pre-configured set types
+      const matchResult = await query("SELECT score FROM matches WHERE id = $1", [id])
+      
+      if (matchResult && Array.isArray(matchResult) && matchResult.length > 0) {
+        const match = matchResult[0]
+        let score = match.score ? (typeof match.score === 'string' ? JSON.parse(match.score) : match.score) : {}
         
-        if (matchResult && Array.isArray(matchResult) && matchResult.length > 0) {
-          const match = matchResult[0]
-          let score = match.score ? (typeof match.score === 'string' ? JSON.parse(match.score) : match.score) : {}
+        // Store pre-configured set types if provided
+        if (setTypes && Array.isArray(setTypes)) {
+          if (!score.sets || !Array.isArray(score.sets)) {
+            const totalSets = setsToWin === 2 ? 3 : setsToWin === 3 ? 5 : 7
+            score.sets = Array.from({ length: totalSets }, () => ({ home: 0, away: 0, type: "singles" }))
+          }
+          // Update set types from pre-configured values
+          setTypes.forEach((setType: "singles" | "doubles", index: number) => {
+            if (score.sets[index]) {
+              score.sets[index].type = setType
+            }
+          })
+        }
+        
+        if (configCompleted && servingTeam) {
           score.servingTeam = servingTeam
           score.lastServingTeam = servingTeam
-          
-          await query(
-            "UPDATE matches SET score = $1 WHERE id = $2",
-            [JSON.stringify(score), id]
-          )
         }
+        
+        await query(
+          "UPDATE matches SET score = $1 WHERE id = $2",
+          [JSON.stringify(score), id]
+        )
       }
 
       return NextResponse.json({ config: updateResult[0] }, { status: 200 })
@@ -163,21 +179,36 @@ export async function POST(
         )
       }
 
-      // If configuration is completed, update the match score with serving team
-      if (configCompleted && servingTeam) {
-        const matchResult = await query("SELECT score FROM matches WHERE id = $1", [id])
+      // Update match score with serving team and pre-configured set types
+      const matchResult = await query("SELECT score FROM matches WHERE id = $1", [id])
+      
+      if (matchResult && Array.isArray(matchResult) && matchResult.length > 0) {
+        const match = matchResult[0]
+        let score = match.score ? (typeof match.score === 'string' ? JSON.parse(match.score) : match.score) : {}
         
-        if (matchResult && Array.isArray(matchResult) && matchResult.length > 0) {
-          const match = matchResult[0]
-          let score = match.score ? (typeof match.score === 'string' ? JSON.parse(match.score) : match.score) : {}
+        // Store pre-configured set types if provided
+        if (setTypes && Array.isArray(setTypes)) {
+          if (!score.sets || !Array.isArray(score.sets)) {
+            const totalSets = setsToWin === 2 ? 3 : setsToWin === 3 ? 5 : 7
+            score.sets = Array.from({ length: totalSets }, () => ({ home: 0, away: 0, type: "singles" }))
+          }
+          // Update set types from pre-configured values
+          setTypes.forEach((setType: "singles" | "doubles", index: number) => {
+            if (score.sets[index]) {
+              score.sets[index].type = setType
+            }
+          })
+        }
+        
+        if (configCompleted && servingTeam) {
           score.servingTeam = servingTeam
           score.lastServingTeam = servingTeam
-          
-          await query(
-            "UPDATE matches SET score = $1 WHERE id = $2",
-            [JSON.stringify(score), id]
-          )
         }
+        
+        await query(
+          "UPDATE matches SET score = $1 WHERE id = $2",
+          [JSON.stringify(score), id]
+        )
       }
 
       return NextResponse.json({ config: insertResult[0] }, { status: 201 })

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getUserRole } from "./lib/authorization"
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value
@@ -31,31 +30,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin-only routes that require admin role
-  const adminOnlyRoutes = [
-    "/matches/create",
-    "/tournaments/create",
-    "/teams/create",
-  ]
-
-  // Check if route matches admin-only pattern
-  const isAdminOnlyRoute = adminOnlyRoutes.some(route => pathname.startsWith(route)) ||
-    /^\/teams\/[^/]+\/edit$/.test(pathname) ||
-    /^\/tournaments\/[^/]+\/edit$/.test(pathname) ||
-    /^\/tournaments\/[^/]+\/create-match$/.test(pathname)
-
-  if (isAdminOnlyRoute) {
-    const role = await getUserRole(request)
-    
-    if (role !== "admin") {
-      // Redirect non-admin users to home with error message
-      const url = new URL("/", request.url)
-      url.searchParams.set("error", "access_denied")
-      url.searchParams.set("message", "You do not have permission to access this page. Admin access required.")
-      return NextResponse.redirect(url)
-    }
-  }
-
+  // For admin-only routes, we'll check authorization in the actual page/API route
+  // because Edge runtime doesn't support database queries
+  // Admin routes: /matches/create, /tournaments/create, /teams/create, /teams/[id]/edit, etc.
+  
   return NextResponse.next()
 }
 

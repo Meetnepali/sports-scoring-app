@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { TossConfigurationDialog } from "@/components/cricket/toss-configuration
 import { CricketScorecardTab } from "@/components/cricket/cricket-scorecard-tab"
 import { ManOfMatchSelector } from "@/components/cricket/man-of-match-selector"
 import { useAuth } from "@/lib/auth-context"
+import { updateMatchScore } from "@/lib/client-api"
 import {
   formatOvers,
   ballsToOvers,
@@ -159,6 +160,36 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       }
     }
   }, [match.score, match.status])
+
+  // Persist score changes to database (with debouncing)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    // Only persist if admin is actively scoring and config is completed
+    const canScore = isAdmin && (match.status === "live" || match.status === "started") && config?.config_completed
+    if (!canScore) return
+    
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Debounce the save operation (wait 500ms after last change)
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await updateMatchScore(match.id, score)
+      } catch (error) {
+        console.error("Error auto-saving score:", error)
+        // Don't show error toast for auto-save to avoid spam
+      }
+    }, 500)
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [score, currentInnings, isAdmin, match.status, config?.config_completed, match.id])
 
   const handleTossComplete = async (tossConfig: any) => {
     // Update config
