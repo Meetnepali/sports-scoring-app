@@ -1362,12 +1362,86 @@ export async function deleteTournamentBracketNodes(tournamentId: string, groupId
 
 export async function deleteTournament(tournamentId: string): Promise<void> {
   try {
+    // First, delete all matches related to this tournament
+    // Get all group_matches for this tournament
+    const groupMatches = await query(
+      `SELECT gm.match_id 
+       FROM group_matches gm
+       JOIN tournament_groups tg ON gm.group_id = tg.id
+       WHERE tg.tournament_id = $1 AND gm.match_id IS NOT NULL`,
+      [tournamentId]
+    )
+    
+    // Delete matches linked to tournament groups
+    const matchIds = groupMatches.map((gm: any) => gm.match_id).filter(Boolean)
+    if (matchIds.length > 0) {
+      // Only delete matches that are not live or started
+      await query(
+        `DELETE FROM matches 
+         WHERE id = ANY($1::uuid[]) 
+         AND status NOT IN ('live', 'started')`,
+        [matchIds]
+      )
+    }
+    
+    // Also delete matches directly linked to tournament via tournament_id
+    await query(
+      `DELETE FROM matches 
+       WHERE tournament_id = $1 
+       AND status NOT IN ('live', 'started')`,
+      [tournamentId]
+    )
+    
     // Database cascade will handle deleting tournament_sports, tournament_groups, 
     // group_teams, and tournament_bracket_nodes
     await query(`DELETE FROM tournaments WHERE id = $1`, [tournamentId])
   } catch (error) {
     console.error("Error deleting tournament:", error)
     throw new Error("Failed to delete tournament")
+  }
+}
+
+// Match deletion function
+export async function deleteMatch(matchId: string): Promise<void> {
+  try {
+    // First, check if match exists and get its status
+    const matchResult = await query(
+      `SELECT id, status FROM matches WHERE id = $1`,
+      [matchId]
+    )
+    
+    if (matchResult.length === 0) {
+      throw new Error("Match not found")
+    }
+    
+    const match = matchResult[0]
+    
+    // Prevent deletion of live or started matches
+    if (match.status === "live" || match.status === "started") {
+      throw new Error("Cannot delete a match that is currently live or started. Please complete or cancel the match first.")
+    }
+    
+    // Delete related records first (cascading will handle most, but being explicit)
+    // Delete user_match_participation records
+    await query(`DELETE FROM user_match_participation WHERE match_id = $1`, [matchId])
+    
+    // Delete sport-specific configs if they exist
+    await query(`DELETE FROM cricket_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    await query(`DELETE FROM volleyball_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    await query(`DELETE FROM chess_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    await query(`DELETE FROM futsal_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    await query(`DELETE FROM table_tennis_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    await query(`DELETE FROM badminton_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    
+    // Delete the match itself
+    // This will cascade to user_match_participation and set match_id to NULL in group_matches
+    await query(`DELETE FROM matches WHERE id = $1`, [matchId])
+  } catch (error) {
+    console.error("Error deleting match:", error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error("Failed to delete match")
   }
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -128,6 +128,34 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
       setShowTossDialog(true)
     }
   }, [match.status, loadingConfig, tableTennisConfig, isAdmin])
+
+  // Sync local state with match prop changes (for live updates)
+  useEffect(() => {
+    if (match.score) {
+      const newScore = {
+        sets: Array.isArray(match.score.sets) ? match.score.sets.map((set: any) => ({
+          home: Number(set.home) || 0,
+          away: Number(set.away) || 0,
+          type: set.type || "singles"
+        })) : score.sets,
+        currentSet: Number(match.score.currentSet) ?? score.currentSet,
+        servingPlayer: match.score.servingPlayer || score.servingPlayer,
+        pointsToWin: Number(match.score.pointsToWin) || score.pointsToWin,
+        setsToWin: Number(match.score.setsToWin) || score.setsToWin,
+        isDoubles: match.score.isDoubles ?? score.isDoubles,
+      }
+      
+      // Only update if score actually changed (avoid unnecessary updates)
+      if (JSON.stringify(newScore.sets) !== JSON.stringify(score.sets) ||
+          newScore.currentSet !== score.currentSet ||
+          newScore.servingPlayer !== score.servingPlayer) {
+        setScore(newScore)
+        setCurrentSet(newScore.currentSet)
+        setServingPlayer(newScore.servingPlayer)
+        setIsDoubles(newScore.isDoubles)
+      }
+    }
+  }, [match.score, match.status])
 
   // Handle toss configuration completion
   const handleTossComplete = async (config: any) => {
@@ -762,7 +790,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
             )}
           </div>
         </DialogContent>
-          </Dialog>
+      </Dialog>
 
       {/* Toss Configuration Dialog - Only for admins */}
       {isAdmin && showTossDialog && (

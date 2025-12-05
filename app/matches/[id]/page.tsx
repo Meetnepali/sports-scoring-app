@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { use } from "react"
 import { getMatchById } from "@/lib/client-api"
 import { notFound } from "next/navigation"
@@ -24,19 +24,27 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
   const [hasSeenWinnerDialog, setHasSeenWinnerDialog] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState<number>(0)
+  const hasSeenWinnerDialogRef = useRef(false)
 
   const fetchMatch = async () => {
     try {
       const data = await getMatchById(id)
       setMatch(data)
+      // Track version from initial fetch
+      if (data && (data as any).version !== undefined) {
+        setCurrentVersion((data as any).version)
+      }
       
       // Show winner dialog if match is completed and user hasn't seen it yet
-      if (data && data.status === "completed" && !hasSeenWinnerDialog) {
+      if (data && data.status === "completed" && !hasSeenWinnerDialogRef.current) {
         // Check if there's a stored flag in sessionStorage
         const seenKey = `match_winner_seen_${id}`
         const hasSeen = sessionStorage.getItem(seenKey)
         if (!hasSeen) {
           setShowWinnerDialog(true)
+        } else {
+          hasSeenWinnerDialogRef.current = true
         }
       }
     } catch (error) {
@@ -51,10 +59,67 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
     fetchMatch()
   }, [id])
 
+  // Set up EventSource for real-time score updates
+  useEffect(() => {
+    if (!match || loading) return
+
+    const eventSource = new EventSource(`/api/stream/match/${id}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const updateData = JSON.parse(event.data)
+        const { matchId, score, status, version, updatedAt } = updateData
+
+        // Only update if version is newer
+        setCurrentVersion((prevVersion) => {
+          if (version > prevVersion) {
+            // Update match state with new data
+            setMatch((prevMatch) => {
+              if (!prevMatch) return prevMatch
+              
+              const wasCompleted = prevMatch.status === "completed"
+              
+              return {
+                ...prevMatch,
+                score: score,
+                status: status as "scheduled" | "started" | "live" | "completed",
+              }
+            })
+
+            // Show winner dialog if match just completed
+            if (status === "completed" && !hasSeenWinnerDialogRef.current) {
+              const seenKey = `match_winner_seen_${id}`
+              const hasSeen = sessionStorage.getItem(seenKey)
+              if (!hasSeen) {
+                setShowWinnerDialog(true)
+              }
+            }
+
+            return version
+          }
+          return prevVersion
+        })
+      } catch (error) {
+        console.error("Error parsing SSE message:", error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error)
+      // EventSource will automatically attempt to reconnect
+    }
+
+    // Cleanup on unmount
+    return () => {
+      eventSource.close()
+    }
+  }, [id, match?.id, loading])
+
   // Handle closing winner dialog
   const handleCloseWinnerDialog = () => {
     setShowWinnerDialog(false)
     setHasSeenWinnerDialog(true)
+    hasSeenWinnerDialogRef.current = true
     // Store in sessionStorage so it doesn't show again during this session
     sessionStorage.setItem(`match_winner_seen_${id}`, "true")
   }

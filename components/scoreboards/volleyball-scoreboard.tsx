@@ -141,6 +141,32 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
       setShowTossDialog(true)
     }
   }, [match.status, loadingConfig, volleyballConfig])
+
+  // Sync local state with match prop changes (for live updates)
+  useEffect(() => {
+    if (match.score) {
+      const newScore = {
+        ...match.score,
+        sets: Array.isArray(match.score.sets) ? match.score.sets.map((set: any) => ({
+          home: Number(set.home) || 0,
+          away: Number(set.away) || 0
+        })) : score.sets,
+        currentSet: Number(match.score.currentSet) ?? score.currentSet,
+        servingTeam: match.score.servingTeam || score.servingTeam,
+        lastServingTeam: match.score.lastServingTeam || score.lastServingTeam,
+        homeTeam: score.homeTeam, // Preserve team structure
+        awayTeam: score.awayTeam, // Preserve team structure
+      }
+      
+      // Only update if score actually changed (avoid unnecessary updates)
+      if (JSON.stringify(newScore.sets) !== JSON.stringify(score.sets) ||
+          newScore.currentSet !== score.currentSet ||
+          newScore.servingTeam !== score.servingTeam) {
+        setScore(newScore)
+        setCurrentSet(newScore.currentSet)
+      }
+    }
+  }, [match.score, match.status])
   
   // Validate 7 players when match status is "started" or "live" and config is completed
   useEffect(() => {

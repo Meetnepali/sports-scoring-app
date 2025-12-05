@@ -88,8 +88,26 @@ export async function initializeDatabase() {
         venue VARCHAR(255) NOT NULL,
         status VARCHAR(50) DEFAULT 'scheduled',
         score JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        version INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `)
+
+    // Add version and updated_at columns if they don't exist (for existing databases)
+    await query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name = 'matches' AND column_name = 'version') THEN
+          ALTER TABLE matches ADD COLUMN version INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                       WHERE table_name = 'matches' AND column_name = 'updated_at') THEN
+          ALTER TABLE matches ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+          UPDATE matches SET updated_at = created_at WHERE updated_at IS NULL;
+        END IF;
+      END $$;
     `)
 
     // Create user_match_participation table
@@ -270,6 +288,46 @@ export async function initializeDatabase() {
         [sport],
       )
     }
+
+    // Create trigger function for score updates
+    await query(`
+      CREATE OR REPLACE FUNCTION notify_score_update()
+      RETURNS TRIGGER AS $$
+      DECLARE
+        payload JSONB;
+      BEGIN
+        -- Check if score or status changed
+        IF (OLD.score IS DISTINCT FROM NEW.score) OR (OLD.status IS DISTINCT FROM NEW.status) THEN
+          -- Increment version
+          NEW.version := COALESCE(OLD.version, 0) + 1;
+          NEW.updated_at := CURRENT_TIMESTAMP;
+          
+          -- Build JSON payload
+          payload := jsonb_build_object(
+            'matchId', NEW.id::text,
+            'score', NEW.score,
+            'status', NEW.status,
+            'version', NEW.version,
+            'updatedAt', NEW.updated_at
+          );
+          
+          -- Send NOTIFY
+          PERFORM pg_notify('score_updates', payload::text);
+        END IF;
+        
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `)
+
+    // Create trigger
+    await query(`
+      DROP TRIGGER IF EXISTS score_update_trigger ON matches;
+      CREATE TRIGGER score_update_trigger
+      BEFORE UPDATE ON matches
+      FOR EACH ROW
+      EXECUTE FUNCTION notify_score_update();
+    `)
 
     console.log("Database initialized successfully")
   } catch (error) {

@@ -146,6 +146,20 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     }
   }, [match.status, isAdmin, loadingConfig, config])
 
+  // Sync local state with match prop changes (for live updates)
+  useEffect(() => {
+    if (match.score) {
+      const newScore = match.score
+      // Only update if score actually changed (avoid unnecessary updates)
+      if (JSON.stringify(newScore) !== JSON.stringify(score)) {
+        setScore(newScore)
+        if (newScore.currentInnings !== undefined) {
+          setCurrentInnings(newScore.currentInnings)
+        }
+      }
+    }
+  }, [match.score, match.status])
+
   const handleTossComplete = async (tossConfig: any) => {
     // Update config
     setConfig({

@@ -72,6 +72,28 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
     }
   }, [match.status, loadingConfig, futsalConfig])
 
+  // Sync local state with match prop changes (for live updates)
+  useEffect(() => {
+    if (match.score) {
+      const newScore = {
+        home: Number(match.score.home || 0),
+        away: Number(match.score.away || 0),
+        period: match.score.period || score.period,
+        time: match.score.time || score.time,
+        goals: Array.isArray(match.score.goals) ? match.score.goals : score.goals,
+      }
+      
+      // Only update if score actually changed (avoid unnecessary updates)
+      if (newScore.home !== score.home ||
+          newScore.away !== score.away ||
+          newScore.period !== score.period ||
+          newScore.time !== score.time ||
+          JSON.stringify(newScore.goals) !== JSON.stringify(score.goals)) {
+        setScore(newScore)
+      }
+    }
+  }, [match.score, match.status])
+
   // Handle toss configuration completion
   const handleTossComplete = async (config: any) => {
     setFutsalConfig((prev: any) => ({

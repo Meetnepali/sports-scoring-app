@@ -64,6 +64,25 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
     }
   }, [match.status, loadingConfig, chessConfig])
 
+  // Sync local state with match prop changes (for live updates)
+  useEffect(() => {
+    if (match.score) {
+      const newGames = Array.isArray(match.score.games) ? match.score.games : games
+      const newTeamScore = {
+        home: Number(match.score?.teamScore?.home) ?? teamScore.home,
+        away: Number(match.score?.teamScore?.away) ?? teamScore.away
+      }
+      
+      // Only update if score actually changed (avoid unnecessary updates)
+      if (JSON.stringify(newGames) !== JSON.stringify(games) ||
+          newTeamScore.home !== teamScore.home ||
+          newTeamScore.away !== teamScore.away) {
+        setGames(newGames)
+        setTeamScore(newTeamScore)
+      }
+    }
+  }, [match.score, match.status])
+
   // Handle toss configuration completion
   const handleTossComplete = async (config: any) => {
     setChessConfig((prev: any) => ({
@@ -104,25 +123,19 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
     }
   }
 
-  const updateGameResult = (index: number, result: string) => {
-    setGames((prevGames: any) => {
-      const newGames = [...prevGames]
-      newGames[index] = {
-        ...newGames[index],
-        result,
-      }
-      return newGames
-    })
+  const updateGameResult = async (index: number, result: string) => {
+    // Update games state
+    const updatedGames = [...games]
+    updatedGames[index] = {
+      ...updatedGames[index],
+      result,
+    }
+    setGames(updatedGames)
 
-    // Update team score based on results
-    calculateTeamScore()
-  }
-
-  const calculateTeamScore = () => {
+    // Calculate new team score
     let home = 0
     let away = 0
-
-    games.forEach((game: any) => {
+    updatedGames.forEach((game: any) => {
       if (game.result === "1-0") {
         home += 1
       } else if (game.result === "0-1") {
@@ -132,9 +145,32 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
         away += 0.5
       }
     })
-
-    setTeamScore({ home, away })
+    
+    const newTeamScore = { home, away }
+    setTeamScore(newTeamScore)
+    
+    // Save to database
+    try {
+      const scoreData = {
+        games: updatedGames,
+        teamScore: newTeamScore,
+      }
+      
+      await fetch(`/api/matches/${match.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: scoreData }),
+      })
+    } catch (error) {
+      console.error("Error saving chess score:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save score",
+        variant: "destructive",
+      })
+    }
   }
+
 
   const getPlayerName = (playerId: string) => {
     const allPlayers = [...match.homeTeam.players, ...match.awayTeam.players]
