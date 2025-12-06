@@ -1086,6 +1086,8 @@ export async function getGroupMatches(groupId: string): Promise<GroupMatch[]> {
       winnerId: row.winner_id,
       matchDate: row.match_date,
       status: row.status,
+      matchId: row.match_id,
+      matchNumber: row.match_number,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }))
@@ -1362,7 +1364,7 @@ export async function deleteTournamentBracketNodes(tournamentId: string, groupId
 
 export async function deleteTournament(tournamentId: string): Promise<void> {
   try {
-    // First, delete all matches related to this tournament
+    // First, delete all matches related to this tournament (including all statuses)
     // Get all group_matches for this tournament
     const groupMatches = await query(
       `SELECT gm.match_id 
@@ -1372,23 +1374,75 @@ export async function deleteTournament(tournamentId: string): Promise<void> {
       [tournamentId]
     )
     
-    // Delete matches linked to tournament groups
+    // Delete ALL matches linked to tournament groups (regardless of status)
     const matchIds = groupMatches.map((gm: any) => gm.match_id).filter(Boolean)
     if (matchIds.length > 0) {
-      // Only delete matches that are not live or started
+      // Delete sport-specific configs for these matches
+      for (const matchId of matchIds) {
+        await query(`DELETE FROM cricket_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM volleyball_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM chess_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM futsal_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM table_tennis_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM badminton_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+      }
+      
+      // Delete user match participation
       await query(
-        `DELETE FROM matches 
-         WHERE id = ANY($1::uuid[]) 
-         AND status NOT IN ('live', 'started')`,
+        `DELETE FROM user_match_participation WHERE match_id = ANY($1::uuid[])`,
+        [matchIds]
+      )
+      
+      // Delete all matches regardless of status
+      await query(
+        `DELETE FROM matches WHERE id = ANY($1::uuid[])`,
         [matchIds]
       )
     }
     
     // Also delete matches directly linked to tournament via tournament_id
+    const directMatches = await query(
+      `SELECT id FROM matches WHERE tournament_id = $1`,
+      [tournamentId]
+    )
+    
+    const directMatchIds = directMatches.map((m: any) => m.id)
+    if (directMatchIds.length > 0) {
+      // Delete sport-specific configs
+      for (const matchId of directMatchIds) {
+        await query(`DELETE FROM cricket_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM volleyball_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM chess_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM futsal_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM table_tennis_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+        await query(`DELETE FROM badminton_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+      }
+      
+      // Delete user match participation
+      await query(
+        `DELETE FROM user_match_participation WHERE match_id = ANY($1::uuid[])`,
+        [directMatchIds]
+      )
+      
+      await query(
+        `DELETE FROM matches WHERE tournament_id = $1`,
+        [tournamentId]
+      )
+    }
+    
+    // Delete group_matches (should be handled by cascade, but being explicit)
     await query(
-      `DELETE FROM matches 
-       WHERE tournament_id = $1 
-       AND status NOT IN ('live', 'started')`,
+      `DELETE FROM group_matches gm
+       USING tournament_groups tg
+       WHERE gm.group_id = tg.id AND tg.tournament_id = $1`,
+      [tournamentId]
+    )
+    
+    // Delete group_standings
+    await query(
+      `DELETE FROM group_standings gs
+       USING tournament_groups tg
+       WHERE gs.group_id = tg.id AND tg.tournament_id = $1`,
       [tournamentId]
     )
     

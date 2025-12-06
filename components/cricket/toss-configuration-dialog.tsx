@@ -109,8 +109,8 @@ export function TossConfigurationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel?.()}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Coins className="h-6 w-6 text-yellow-500" />
             Toss Configuration
@@ -120,7 +120,7 @@ export function TossConfigurationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1">
           {/* Match Info */}
           <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
             <div className="flex items-center justify-between mb-2">
@@ -203,7 +203,7 @@ export function TossConfigurationDialog({
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0 pt-4 border-t">
           <Button
             variant="outline"
             onClick={onCancel}

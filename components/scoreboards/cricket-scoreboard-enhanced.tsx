@@ -737,24 +737,6 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     )
   }
 
-  // Show man of match dialog if match complete
-  if (showManOfMatch) {
-    return (
-      <ManOfMatchSelector
-        open={showManOfMatch}
-        matchId={match.id}
-        onComplete={() => {
-          setShowManOfMatch(false)
-          toast({
-            title: "Match Finalized",
-            description: "View the complete scorecard in the Scorecard tab",
-          })
-        }}
-        onCancel={() => setShowManOfMatch(false)}
-      />
-    )
-  }
-
   // Show loading state while config is being fetched
   if (loadingConfig) {
     return (
@@ -858,6 +840,7 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   }
 
   return (
+    <>
     <Tabs defaultValue="scoring" className="w-full">
       <TabsList className="grid w-full grid-cols-2 mb-6">
         <TabsTrigger value="scoring">Live Scoring</TabsTrigger>
@@ -1097,113 +1080,117 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
               </div>
             )}
 
-            {/* Scoring Buttons */}
-            <div className="space-y-3">
-              <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-300">
-                <h3 className="font-bold text-center mb-3 text-lg">Record Runs</h3>
-                <div className="grid grid-cols-6 gap-2">
-                  {[0, 1, 2, 3, 4, 6].map((run) => (
-                    <Button
-                      key={run}
-                      onClick={() => recordRuns(run)}
-                      className={`h-16 text-xl font-bold ${
-                        run === 0
-                          ? "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                          : run === 4
-                          ? "bg-green-400 hover:bg-green-500 text-white"
-                          : run === 6
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "bg-blue-200 hover:bg-blue-300 text-blue-900"
-                      }`}
-                      disabled={!isAdmin || !striker || !currentBowler || matchCompleted || match.status !== "live"}
-                    >
-                      {run}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+            {/* Scoring Buttons - Only shown to Admins */}
+            {isAdmin && (
+              <>
+                <div className="space-y-3">
+                  <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-300">
+                    <h3 className="font-bold text-center mb-3 text-lg">Record Runs</h3>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[0, 1, 2, 3, 4, 6].map((run) => (
+                        <Button
+                          key={run}
+                          onClick={() => recordRuns(run)}
+                          className={`h-16 text-xl font-bold ${
+                            run === 0
+                              ? "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                              : run === 4
+                              ? "bg-green-400 hover:bg-green-500 text-white"
+                              : run === 6
+                              ? "bg-green-600 hover:bg-green-700 text-white"
+                              : "bg-blue-200 hover:bg-blue-300 text-blue-900"
+                          }`}
+                          disabled={!striker || !currentBowler || matchCompleted || match.status !== "live"}
+                        >
+                          {run}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Wicket and Extras */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Wicket */}
-                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
-                  <h3 className="font-bold text-center mb-3">Wicket</h3>
-                  <Button
-                    onClick={recordWicket}
-                    className="w-full h-14 text-lg font-bold bg-red-500 hover:bg-red-600 text-white"
-                    disabled={
-                      !striker || !currentBowler || currentInningsData.wickets >= 10 || matchCompleted
-                    }
-                  >
-                    OUT! (Wickets: {currentInningsData.wickets}/10)
-                  </Button>
-                </div>
+                  {/* Wicket and Extras */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Wicket */}
+                    <div className="bg-red-50 p-4 rounded-lg border-2 border-red-300">
+                      <h3 className="font-bold text-center mb-3">Wicket</h3>
+                      <Button
+                        onClick={recordWicket}
+                        className="w-full h-14 text-lg font-bold bg-red-500 hover:bg-red-600 text-white"
+                        disabled={
+                          !striker || !currentBowler || currentInningsData.wickets >= 10 || matchCompleted
+                        }
+                      >
+                        OUT! (Wickets: {currentInningsData.wickets}/10)
+                      </Button>
+                    </div>
 
-                {/* Extras */}
-                <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
-                  <h3 className="font-bold text-center mb-3">Extras (Total: {totalExtras})</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => recordExtra("wides")}
-                      className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
-                      disabled={!isAdmin || !currentBowler || matchCompleted || match.status !== "live"}
-                    >
-                      Wide
-                    </Button>
-                    <Button
-                      onClick={() => recordExtra("noBalls")}
-                      className="h-12 bg-orange-200 hover:bg-orange-300 text-orange-900"
-                      disabled={!isAdmin || !currentBowler || matchCompleted || match.status !== "live"}
-                    >
-                      No Ball
-                    </Button>
-                    <Button
-                      onClick={() => recordExtra("byes")}
-                      className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
-                      disabled={!isAdmin || !currentBowler || matchCompleted || match.status !== "live"}
-                    >
-                      Bye
-                    </Button>
-                    <Button
-                      onClick={() => recordExtra("legByes")}
-                      className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
-                      disabled={!isAdmin || !currentBowler || matchCompleted || match.status !== "live"}
-                    >
-                      Leg Bye
-                    </Button>
+                    {/* Extras */}
+                    <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
+                      <h3 className="font-bold text-center mb-3">Extras (Total: {totalExtras})</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          onClick={() => recordExtra("wides")}
+                          className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
+                          disabled={!currentBowler || matchCompleted || match.status !== "live"}
+                        >
+                          Wide
+                        </Button>
+                        <Button
+                          onClick={() => recordExtra("noBalls")}
+                          className="h-12 bg-orange-200 hover:bg-orange-300 text-orange-900"
+                          disabled={!currentBowler || matchCompleted || match.status !== "live"}
+                        >
+                          No Ball
+                        </Button>
+                        <Button
+                          onClick={() => recordExtra("byes")}
+                          className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
+                          disabled={!currentBowler || matchCompleted || match.status !== "live"}
+                        >
+                          Bye
+                        </Button>
+                        <Button
+                          onClick={() => recordExtra("legByes")}
+                          className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
+                          disabled={!currentBowler || matchCompleted || match.status !== "live"}
+                        >
+                          Leg Bye
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2 justify-center pt-2">
-              {scoreHistory.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={undoLastAction}
-                  className="flex items-center gap-2"
-                  disabled={!isAdmin || matchCompleted || match.status !== "live"}
-                >
-                  <Undo2 className="h-4 w-4" />
-                  Undo
-                </Button>
-              )}
-              {currentInnings === 0 && !matchCompleted && (
-                <Button
-                  variant="outline"
-                  onClick={switchInnings}
-                  className="bg-purple-100 hover:bg-purple-200"
-                >
-                  End Innings & Switch
-                </Button>
-              )}
-              {matchCompleted && (
-                <Button onClick={() => setShowManOfMatch(true)} className="bg-yellow-500 hover:bg-yellow-600">
-                  Select Man of the Match
-                </Button>
-              )}
-            </div>
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 justify-center pt-2">
+                  {scoreHistory.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={undoLastAction}
+                      className="flex items-center gap-2"
+                      disabled={matchCompleted || match.status !== "live"}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      Undo
+                    </Button>
+                  )}
+                  {currentInnings === 0 && !matchCompleted && (
+                    <Button
+                      variant="outline"
+                      onClick={switchInnings}
+                      className="bg-purple-100 hover:bg-purple-200"
+                    >
+                      End Innings & Switch
+                    </Button>
+                  )}
+                  {matchCompleted && (
+                    <Button onClick={() => setShowManOfMatch(true)} className="bg-yellow-500 hover:bg-yellow-600">
+                      Select Man of the Match
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Extras Summary */}
             <div className="bg-gray-50 p-3 rounded-lg border text-sm">
@@ -1230,6 +1217,23 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
         />
       </TabsContent>
     </Tabs>
+
+    {/* Man of Match Selector Dialog */}
+    {showManOfMatch && (
+      <ManOfMatchSelector
+        open={showManOfMatch}
+        matchId={match.id}
+        onComplete={() => {
+          setShowManOfMatch(false)
+          toast({
+            title: "Match Finalized",
+            description: "View the complete scorecard in the Scorecard tab",
+          })
+        }}
+        onCancel={() => setShowManOfMatch(false)}
+      />
+    )}
+    </>
   )
 }
 

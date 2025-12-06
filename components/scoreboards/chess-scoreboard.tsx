@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 import ChessBoard from "@/components/chess-board"
 import { TossConfigurationDialog } from "@/components/chess/toss-configuration-dialog"
 import { updateMatchScore } from "@/lib/client-api"
@@ -28,6 +29,7 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
   const [showTossDialog, setShowTossDialog] = useState(false)
   const [loadingConfig, setLoadingConfig] = useState(true)
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
 
   // Fetch chess configuration on mount and when match status changes
   useEffect(() => {
@@ -227,8 +229,8 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
     )
   }
 
-  // Show message if config not completed (toss dialog will show automatically)
-  if ((match.status === "started" || match.status === "live") && chessConfig && !chessConfig.configCompleted && !showTossDialog) {
+  // Show message if config not completed (toss dialog will show automatically) - Only for admins
+  if (isAdmin && (match.status === "started" || match.status === "live") && chessConfig && !chessConfig.configCompleted && !showTossDialog) {
     return (
       <Card>
         <CardHeader>
@@ -248,8 +250,8 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
     )
   }
 
-  // Enable scoring if match is live (or was started and config is completed) and config is completed
-  const canScore = (match.status === "live" || (match.status === "started" && chessConfig?.configCompleted)) && chessConfig?.configCompleted
+  // Enable scoring if match is live (or was started and config is completed) and config is completed AND user is admin
+  const canScore = isAdmin && (match.status === "live" || (match.status === "started" && chessConfig?.configCompleted)) && chessConfig?.configCompleted
 
   return (
     <Card>
@@ -258,12 +260,14 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="board" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="board">Board</TabsTrigger>
             <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
-            <TabsTrigger value="controls" disabled={!canScore}>
-              Controls
-            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="controls" disabled={!canScore}>
+                Controls
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="board">

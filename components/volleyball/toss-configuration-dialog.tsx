@@ -135,14 +135,14 @@ export function TossConfigurationDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel?.()}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-2xl flex items-center gap-2">
             🏐 Volleyball Toss Configuration
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1">
           {/* Match Format Info */}
           <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
             <p className="text-sm font-medium text-blue-900">
@@ -311,7 +311,7 @@ export function TossConfigurationDialog({
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-shrink-0 pt-4 border-t">
           <Button variant="outline" onClick={onCancel} disabled={saving} className="flex-1">
             Cancel
           </Button>

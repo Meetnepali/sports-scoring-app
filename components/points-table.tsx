@@ -7,6 +7,7 @@ import type { Team, GroupTeam } from "@/lib/static-data"
 
 interface TeamStats {
   team: Team
+  totalMatches: number
   played: number
   wins: number
   losses: number
@@ -30,12 +31,17 @@ export function PointsTable({ teams, matches, sport }: PointsTableProps) {
   // Calculate statistics for each team
   const calculateStats = (): TeamStats[] => {
     const stats: Record<string, TeamStats> = {}
+    
+    // Calculate total matches per team (in round-robin, each team plays against every other team once)
+    const totalTeams = teams.length
+    const totalMatchesPerTeam = totalTeams > 1 ? totalTeams - 1 : 0
 
     // Initialize stats for all teams
     teams.forEach((groupTeam) => {
       if (groupTeam.team) {
         stats[groupTeam.teamId] = {
           team: groupTeam.team,
+          totalMatches: totalMatchesPerTeam,
           played: 0,
           wins: 0,
           losses: 0,
@@ -48,9 +54,11 @@ export function PointsTable({ teams, matches, sport }: PointsTableProps) {
       }
     })
 
-    // Process matches
+    // Process matches - only process completed matches with a winner and score
     matches.forEach((match) => {
-      if (!match.winnerId || !match.score) return
+      // Skip matches that are not completed or don't have required data
+      if (match.status !== 'completed' && !match.winnerId) return
+      if (!match.score) return
 
       const team1Stats = stats[match.nodeData?.team1Id || match.team1Id]
       const team2Stats = stats[match.nodeData?.team2Id || match.team2Id]
@@ -193,28 +201,29 @@ export function PointsTable({ teams, matches, sport }: PointsTableProps) {
           <TableRow>
             <TableHead className="w-12">#</TableHead>
             <TableHead>Team</TableHead>
-            <TableHead className="text-center">P</TableHead>
-            <TableHead className="text-center">W</TableHead>
-            <TableHead className="text-center">L</TableHead>
-            <TableHead className="text-center">D</TableHead>
+            <TableHead className="text-center" title="Total Matches">TM</TableHead>
+            <TableHead className="text-center" title="Played">P</TableHead>
+            <TableHead className="text-center" title="Wins">W</TableHead>
+            <TableHead className="text-center" title="Losses">L</TableHead>
+            <TableHead className="text-center" title="Draws">D</TableHead>
             {sport === "cricket" ? (
               <>
-                <TableHead className="text-center">RR</TableHead>
+                <TableHead className="text-center" title="Run Rate">RR</TableHead>
               </>
             ) : (
               <>
-                <TableHead className="text-center">PF</TableHead>
-                <TableHead className="text-center">PA</TableHead>
-                <TableHead className="text-center">Diff</TableHead>
+                <TableHead className="text-center" title="Points For">PF</TableHead>
+                <TableHead className="text-center" title="Points Against">PA</TableHead>
+                <TableHead className="text-center" title="Difference">Diff</TableHead>
               </>
             )}
-            <TableHead className="text-center font-bold">Pts</TableHead>
+            <TableHead className="text-center font-bold" title="Points">Pts</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {stats.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={sport === "cricket" ? 8 : 10} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={sport === "cricket" ? 9 : 11} className="text-center text-muted-foreground py-8">
                 No teams in this group yet
               </TableCell>
             </TableRow>
@@ -238,26 +247,27 @@ export function PointsTable({ teams, matches, sport }: PointsTableProps) {
                     <span>{stat.team.name}</span>
                   </div>
                 </TableCell>
+                <TableCell className="text-center font-semibold">{stat.totalMatches}</TableCell>
                 <TableCell className="text-center">{stat.played}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                     {stat.wins}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="secondary" className="bg-red-100 text-red-800">
+                  <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
                     {stat.losses}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                     {stat.draws}
                   </Badge>
                 </TableCell>
                 {sport === "cricket" ? (
                   <TableCell className="text-center">
                     {stat.runRate !== undefined ? (
-                      <span className={stat.runRate >= 0 ? "text-green-600" : "text-red-600"}>
+                      <span className={stat.runRate >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                         {stat.runRate > 0 ? "+" : ""}
                         {stat.runRate.toFixed(2)}
                       </span>
@@ -270,7 +280,7 @@ export function PointsTable({ teams, matches, sport }: PointsTableProps) {
                     <TableCell className="text-center">{stat.pointsFor}</TableCell>
                     <TableCell className="text-center">{stat.pointsAgainst}</TableCell>
                     <TableCell className="text-center">
-                      <span className={stat.pointsDifference >= 0 ? "text-green-600" : "text-red-600"}>
+                      <span className={stat.pointsDifference >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
                         {stat.pointsDifference > 0 ? "+" : ""}
                         {stat.pointsDifference}
                       </span>

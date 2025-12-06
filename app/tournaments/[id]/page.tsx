@@ -55,6 +55,40 @@ const sportColors: Record<string, string> = {
   badminton: "#ec4899",
 }
 
+// Helper function to format score display based on sport
+const formatScore = (score: any, sport: string): string => {
+  if (!score) return '-'
+  
+  try {
+    // Parse if it's a string
+    const parsedScore = typeof score === 'string' ? JSON.parse(score) : score
+    
+    if (sport === 'cricket') {
+      // Cricket: Show runs/wickets (overs)
+      const runs = parsedScore.runs || 0
+      const wickets = parsedScore.wickets || 0
+      const overs = parsedScore.overs || 0
+      return `${runs}/${wickets} (${overs})`
+    }
+    
+    if (sport === 'volleyball' || sport === 'badminton' || sport === 'table-tennis') {
+      // Show sets/games won
+      return parsedScore.toString()
+    }
+    
+    if (sport === 'chess') {
+      // Show points (can be decimal)
+      return parsedScore.toString()
+    }
+    
+    // Default: futsal and others
+    return parsedScore.toString()
+  } catch (e) {
+    // If parsing fails, just return the value
+    return score.toString()
+  }
+}
+
 export default function TournamentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [tournamentId, setTournamentId] = useState<string | null>(null)
   const [tournament, setTournament] = useState<any>(null)
@@ -337,12 +371,11 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
         )}
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="groups">Groups & Points</TabsTrigger>
-            <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
-            <TabsTrigger value="bracket">Bracket</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
+            <TabsTrigger value="bracket">Bracket</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -548,149 +581,6 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
             )}
           </TabsContent>
 
-          <TabsContent value="fixtures">
-            {tournamentSports.length > 0 ? (
-              <div className="space-y-6">
-                {/* Sport Selector */}
-                <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-                  <Trophy className="h-5 w-5 text-primary" />
-                  <Select
-                    value={tournamentSports[selectedSportIndex]?.sport}
-                    onValueChange={(value) => {
-                      const index = tournamentSports.findIndex((s) => s.sport === value)
-                      if (index >= 0) setSelectedSportIndex(index)
-                    }}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tournamentSports.map((sport) => (
-                        <SelectItem key={sport.id} value={sport.sport}>
-                          {sportNames[sport.sport] || sport.sport}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-muted-foreground">
-                    View fixtures by sport and group
-                  </span>
-                </div>
-
-                {/* Fixtures by Group */}
-                {groups.length > 0 ? (
-                  <div className="space-y-6">
-                    {groups.map((group) => {
-                      const groupFixtures = groupMatches[group.id] || []
-                      const groupTeamsList = allGroupTeams[group.id] || []
-
-                      return (
-                        <Card key={group.id}>
-                          <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <Calendar className="h-5 w-5 text-primary" />
-                                {group.groupName}
-                              </span>
-                              <Badge variant="secondary">
-                                {groupFixtures.length} fixtures
-                              </Badge>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            {groupFixtures.length > 0 ? (
-                              <div className="space-y-3">
-                                {groupFixtures.map((fixture: any, index: number) => {
-                                  const team1 = groupTeamsList.find((gt) => gt.teamId === fixture.team1Id)
-                                  const team2 = groupTeamsList.find((gt) => gt.teamId === fixture.team2Id)
-                                  
-                                  return (
-                                    <div
-                                      key={fixture.id}
-                                      className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted transition-colors"
-                                    >
-                                      <div className="flex items-center gap-4 flex-1">
-                                        <Badge variant="outline" className="font-mono">
-                                          #{index + 1}
-                                        </Badge>
-                                        <div className="flex items-center gap-2">
-                                          {team1?.team?.logo && (
-                                            <Image
-                                              src={team1.team.logo}
-                                              alt={team1.team.name}
-                                              width={24}
-                                              height={24}
-                                              className="rounded"
-                                            />
-                                          )}
-                                          <span className="font-medium">
-                                            {team1?.team?.name || "TBD"}
-                                          </span>
-                                        </div>
-                                        <span className="text-muted-foreground">vs</span>
-                                        <div className="flex items-center gap-2">
-                                          {team2?.team?.logo && (
-                                            <Image
-                                              src={team2.team.logo}
-                                              alt={team2.team.name}
-                                              width={24}
-                                              height={24}
-                                              className="rounded"
-                                            />
-                                          )}
-                                          <span className="font-medium">
-                                            {team2?.team?.name || "TBD"}
-                                          </span>
-                                        </div>
-                                        {fixture.matchDate && (
-                                          <span className="text-sm text-muted-foreground ml-auto">
-                                            {new Date(fixture.matchDate).toLocaleDateString()}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <Badge
-                                        variant={
-                                          fixture.status === "completed"
-                                            ? "default"
-                                            : fixture.status === "live"
-                                            ? "destructive"
-                                            : "secondary"
-                                        }
-                                      >
-                                        {fixture.status || "scheduled"}
-                                      </Badge>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                                <p>No fixtures created for this group yet</p>
-                                <p className="text-sm mt-1">
-                                  Fixtures can be created during tournament setup
-                                </p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <Card className="p-12 text-center">
-                    <Trophy className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-30" />
-                    <p className="text-muted-foreground">No groups created for this sport</p>
-                  </Card>
-                )}
-              </div>
-            ) : (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No sports configured for this tournament</p>
-              </Card>
-            )}
-          </TabsContent>
-
           <TabsContent value="bracket">
             {selectedGroupId && currentTeams.length > 0 ? (
               <Card>
@@ -748,7 +638,7 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                         <CardContent>
                           <div className="text-center py-8 text-muted-foreground">
                             <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>No fixtures created for this group yet</p>
+                            <p>No matches created for this group yet</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -768,82 +658,110 @@ export default function TournamentDetailPage({ params }: { params: Promise<{ id:
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          {groupMatchesList.map((match: any) => {
+                          {groupMatchesList.map((match: any, index: number) => {
                             const team1 = groupTeamsList.find(gt => gt.teamId === match.team1Id)?.team
                             const team2 = groupTeamsList.find(gt => gt.teamId === match.team2Id)?.team
                             const winner = groupTeamsList.find(gt => gt.teamId === match.winnerId)?.team
 
-                      return (
-                        <div key={match.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                          <div className="flex justify-between items-center mb-4">
-                            <div className="font-medium text-sm text-muted-foreground">
-                              {match.matchDate && new Date(match.matchDate).toLocaleDateString()}
-                            </div>
-                            <Badge variant={match.status === 'completed' ? 'default' : 'secondary'}>
-                              {match.status}
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center flex-1 justify-end mr-4">
-                              <div className="text-right mr-3">
-                                <div className="font-semibold text-lg">{team1?.name || 'TBD'}</div>
-                                <div className="text-3xl font-bold">
-                                  {match.team1Score ? JSON.stringify(match.team1Score) : '-'}
+                            return (
+                              <div key={match.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-center mb-4">
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="font-mono">#{index + 1}</Badge>
+                                    <div className="font-medium text-sm text-muted-foreground">
+                                      {match.matchDate && new Date(match.matchDate).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={
+                                      match.status === 'completed' ? 'default' : 
+                                      match.status === 'live' ? 'destructive' :
+                                      match.status === 'started' ? 'destructive' : 
+                                      'secondary'
+                                    }>
+                                      {match.status || 'scheduled'}
+                                    </Badge>
+                                    {match.matchId && match.status !== 'completed' && (
+                                      <Link href={`/matches/${match.matchId}`}>
+                                        <Button size="sm" variant="default">
+                                          {match.status === 'scheduled' ? 'Start Match' : 'Continue Match'}
+                                        </Button>
+                                      </Link>
+                                    )}
+                                    {match.matchId && match.status === 'completed' && (
+                                      <Link href={`/matches/${match.matchId}`}>
+                                        <Button size="sm" variant="outline">
+                                          View Details
+                                        </Button>
+                                      </Link>
+                                    )}
+                                  </div>
                                 </div>
+
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center flex-1 justify-end mr-4">
+                                    <div className="text-right mr-3">
+                                      <div className="font-semibold text-lg">{team1?.name || 'TBD'}</div>
+                                      {match.status === 'completed' && match.team1Score && (
+                                        <div className="text-2xl font-bold mt-1">
+                                          {formatScore(match.team1Score, currentSport?.sport || '')}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {team1?.logo && (
+                                      <div className="w-12 h-12 bg-gray-100 rounded-full relative">
+                                        <Image
+                                          src={team1.logo}
+                                          alt={team1.name}
+                                          fill
+                                          className="object-contain p-2"
+                                          sizes="48px"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="mx-4 text-gray-500 font-bold">VS</div>
+
+                                  <div className="flex items-center flex-1">
+                                    {team2?.logo && (
+                                      <div className="w-12 h-12 bg-gray-100 rounded-full relative">
+                                        <Image
+                                          src={team2.logo}
+                                          alt={team2.name}
+                                          fill
+                                          className="object-contain p-2"
+                                          sizes="48px"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="ml-3">
+                                      <div className="font-semibold text-lg">{team2?.name || 'TBD'}</div>
+                                      {match.status === 'completed' && match.team2Score && (
+                                        <div className="text-2xl font-bold mt-1">
+                                          {formatScore(match.team2Score, currentSport?.sport || '')}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {match.winnerId && winner && match.status === 'completed' && (
+                                  <div className="mt-4 text-center">
+                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                      <Award className="h-3 w-3 mr-1" />
+                                      {winner.name} won
+                                    </Badge>
+                                  </div>
+                                )}
                               </div>
-                              {team1?.logo && (
-                                <div className="w-12 h-12 bg-gray-100 rounded-full relative">
-                                  <Image
-                                    src={team1.logo}
-                                    alt={team1.name}
-                                    fill
-                                    className="object-contain p-2"
-                                    sizes="48px"
-                                  />
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="mx-4 text-gray-500 font-bold">VS</div>
-
-                            <div className="flex items-center flex-1">
-                              {team2?.logo && (
-                                <div className="w-12 h-12 bg-gray-100 rounded-full relative">
-                                  <Image
-                                    src={team2.logo}
-                                    alt={team2.name}
-                                    fill
-                                    className="object-contain p-2"
-                                    sizes="48px"
-                                  />
-                                </div>
-                              )}
-                              <div className="ml-3">
-                                <div className="font-semibold text-lg">{team2?.name || 'TBD'}</div>
-                                <div className="text-3xl font-bold">
-                                  {match.team2Score ? JSON.stringify(match.team2Score) : '-'}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {match.winnerId && winner && (
-                            <div className="mt-4 text-center">
-                              <Badge className="bg-green-100 text-green-800">
-                                <Award className="h-3 w-3 mr-1" />
-                                {winner.name} won
-                              </Badge>
-                            </div>
-                          )}
+                            )
+                          })}
                         </div>
-                      )
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-                    )
-                  })}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             ) : (
               <Card>

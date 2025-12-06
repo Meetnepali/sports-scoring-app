@@ -169,19 +169,19 @@ export function ManOfMatchSelector({
               <SelectTrigger id="man-of-match" className="h-12">
                 <SelectValue placeholder="Choose a player" />
               </SelectTrigger>
-              <SelectContent className="max-h-[300px]">
+              <SelectContent className="max-h-[400px] overflow-y-auto">
                 {/* Batting Candidates */}
                 {candidates.batStats.length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 sticky top-0 z-10">
                       Top Batsmen
                     </div>
                     {candidates.batStats.slice(0, 5).map((bat) => (
-                      <SelectItem key={bat.playerId} value={bat.playerId}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{bat.playerName}</span>
-                          <span className="text-xs text-gray-500">
-                            {bat.runs} runs off {bat.balls} balls (SR: {((bat.runs / bat.balls) * 100).toFixed(1)})
+                      <SelectItem key={bat.playerId} value={bat.playerId} className="cursor-pointer">
+                        <div className="flex flex-col py-1 min-w-0">
+                          <span className="font-medium truncate">{bat.playerName}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {bat.runs} runs ({bat.balls} balls) • SR: {((bat.runs / (bat.balls || 1)) * 100).toFixed(1)}
                           </span>
                         </div>
                       </SelectItem>
@@ -192,15 +192,15 @@ export function ManOfMatchSelector({
                 {/* Bowling Candidates */}
                 {candidates.bowlStats.length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 mt-2">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-100 dark:bg-gray-800 sticky top-0 z-10 mt-1">
                       Top Bowlers
                     </div>
                     {candidates.bowlStats.slice(0, 5).map((bowl) => (
-                      <SelectItem key={bowl.playerId} value={bowl.playerId}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{bowl.playerName}</span>
-                          <span className="text-xs text-gray-500">
-                            {bowl.wickets} wickets, {bowl.runs} runs (Econ: {(bowl.runs / (bowl.overs * 6)).toFixed(2)})
+                      <SelectItem key={bowl.playerId} value={bowl.playerId} className="cursor-pointer">
+                        <div className="flex flex-col py-1 min-w-0">
+                          <span className="font-medium truncate">{bowl.playerName}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {bowl.wickets} wkts • {bowl.runs} runs • Econ: {(bowl.runs / ((bowl.overs || 1) * 6)).toFixed(2)}
                           </span>
                         </div>
                       </SelectItem>

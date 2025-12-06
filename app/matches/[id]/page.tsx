@@ -17,6 +17,7 @@ import { motion } from "framer-motion"
 import type { Match } from "@/lib/static-data"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { MatchWinnerDialog } from "@/components/match-winner-dialog"
+import { ScoreboardWrapper } from "@/components/scoreboard-wrapper"
 
 export default function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -236,7 +237,9 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           transition={{ duration: 0.5, delay: 0.2 }}
           className="animate-slide-in"
         >
-          {renderScoreboard()}
+          <ScoreboardWrapper match={match}>
+            {renderScoreboard()}
+          </ScoreboardWrapper>
         </motion.div>
       </div>
 

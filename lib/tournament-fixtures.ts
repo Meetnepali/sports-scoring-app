@@ -63,8 +63,8 @@ export function determineWinner(score: any, sport: string): 'team1' | 'team2' | 
   if (!score) return null
   
   if (sport === "cricket") {
-    const team1Runs = score.team1?.runs || 0
-    const team2Runs = score.team2?.runs || 0
+    const team1Runs = score.team1?.runs || score.innings?.[0]?.runs || 0
+    const team2Runs = score.team2?.runs || score.innings?.[1]?.runs || 0
     
     if (team1Runs > team2Runs) return 'team1'
     if (team2Runs > team1Runs) return 'team2'
@@ -72,17 +72,28 @@ export function determineWinner(score: any, sport: string): 'team1' | 'team2' | 
   }
   
   if (sport === "volleyball") {
-    const team1Sets = score.team1?.sets || 0
-    const team2Sets = score.team2?.sets || 0
+    // Check both team1/team2 and home/away formats
+    const team1Sets = score.team1?.sets || score.homeWins || 0
+    const team2Sets = score.team2?.sets || score.awayWins || 0
     
     if (team1Sets > team2Sets) return 'team1'
     if (team2Sets > team1Sets) return 'team2'
     return null // Volleyball can't draw
   }
   
-  // For other sports (futsal, chess, table-tennis, badminton)
-  const team1Score = score.team1 || 0
-  const team2Score = score.team2 || 0
+  if (sport === "badminton" || sport === "table-tennis") {
+    // For badminton and table tennis, check game/set wins
+    const team1Wins = score.team1 || score.homeWins || 0
+    const team2Wins = score.team2 || score.awayWins || 0
+    
+    if (team1Wins > team2Wins) return 'team1'
+    if (team2Wins > team1Wins) return 'team2'
+    return null // Can't draw
+  }
+  
+  // For other sports (futsal, chess)
+  const team1Score = score.team1 || score.home || 0
+  const team2Score = score.team2 || score.away || 0
   
   if (team1Score > team2Score) return 'team1'
   if (team2Score > team1Score) return 'team2'
@@ -96,14 +107,35 @@ export function extractScoreValue(score: any, team: 'team1' | 'team2', sport: st
   if (!score) return 0
   
   if (sport === "cricket") {
-    return score[team]?.runs || 0
+    if (team === 'team1') {
+      return score.team1?.runs || score.innings?.[0]?.runs || 0
+    } else {
+      return score.team2?.runs || score.innings?.[1]?.runs || 0
+    }
   }
   
   if (sport === "volleyball") {
-    return score[team]?.sets || 0
+    if (team === 'team1') {
+      return score.team1?.sets || score.homeWins || 0
+    } else {
+      return score.team2?.sets || score.awayWins || 0
+    }
   }
   
-  return score[team] || 0
+  if (sport === "badminton" || sport === "table-tennis") {
+    if (team === 'team1') {
+      return score.team1 || score.homeWins || 0
+    } else {
+      return score.team2 || score.awayWins || 0
+    }
+  }
+  
+  // For other sports (futsal, chess)
+  if (team === 'team1') {
+    return score.team1 || score.home || 0
+  } else {
+    return score.team2 || score.away || 0
+  }
 }
 
 /**

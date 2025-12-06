@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { updateMatchScore } from "@/lib/client-api"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 import { TossConfigurationDialog } from "@/components/futsal/toss-configuration-dialog"
 
 interface FutsalScoreboardProps {
@@ -35,6 +36,7 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
   const [showTossDialog, setShowTossDialog] = useState(false)
   const [loadingConfig, setLoadingConfig] = useState(true)
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
 
   // Fetch futsal configuration on mount and when match status changes
   useEffect(() => {
@@ -346,8 +348,8 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
     )
   }
 
-  // Show message if config not completed (toss dialog will show automatically)
-  if ((match.status === "started" || match.status === "live") && futsalConfig && !futsalConfig.configCompleted && !showTossDialog) {
+  // Show message if config not completed (toss dialog will show automatically) - Only for admins
+  if (isAdmin && (match.status === "started" || match.status === "live") && futsalConfig && !futsalConfig.configCompleted && !showTossDialog) {
     return (
       <Card>
         <CardHeader className="border-b">
@@ -402,11 +404,13 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
       </CardHeader>
       <CardContent className="pt-6">
         <Tabs defaultValue="scorecard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
-            <TabsTrigger value="controls" disabled={!isLive}>
-              Controls
-            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="controls" disabled={!isLive}>
+                Controls
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="scorecard">

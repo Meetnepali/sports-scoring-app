@@ -50,6 +50,37 @@ export async function POST(
     
     // 3. Update group_matches if this is a tournament match
     if (match.group_id) {
+      // Normalize score structure to use team1/team2 format
+      // The score comes in with home/away from scoreboards but needs to be team1/team2 for group_matches
+      let normalizedScore = { ...score }
+      let team1Score = score
+      let team2Score = score
+      
+      // Handle different score structures based on sport
+      if (score.home !== undefined && score.away !== undefined) {
+        // For sports like futsal, volleyball, etc. that use home/away
+        team1Score = score.home
+        team2Score = score.away
+        normalizedScore = {
+          ...score,
+          team1: score.home,
+          team2: score.away
+        }
+      } else if (score.innings !== undefined) {
+        // Cricket uses innings array
+        team1Score = score.innings[0]
+        team2Score = score.innings[1]
+        normalizedScore = {
+          ...score,
+          team1: score.innings[0],
+          team2: score.innings[1]
+        }
+      } else if (score.team1 !== undefined && score.team2 !== undefined) {
+        // Already in correct format
+        team1Score = score.team1
+        team2Score = score.team2
+      }
+      
       await query(
         `UPDATE group_matches
          SET status = 'completed',
@@ -58,8 +89,8 @@ export async function POST(
              winner_id = $3
          WHERE match_id = $4`,
         [
-          JSON.stringify(score.team1 || score),
-          JSON.stringify(score.team2 || score),
+          JSON.stringify(team1Score),
+          JSON.stringify(team2Score),
           winnerId || null,
           matchId
         ]
@@ -72,7 +103,7 @@ export async function POST(
           match.group_id,
           match.team1_id || match.home_team_id,
           match.team2_id || match.away_team_id,
-          score,
+          normalizedScore,
           match.sport
         )
       } catch (error) {
