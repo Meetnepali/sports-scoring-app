@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import type { Match } from "@/lib/static-data"
 import type { VolleyballScore, VolleyballTeam, VolleyballPlayer, VolleyballPosition, VolleyballMatchConfig } from "@/lib/volleyball-types"
-import { isLibero, isFrontRowPosition, isBackRowPosition } from "@/lib/volleyball-types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -60,7 +59,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         homeTeam: initializeTeam(match.homeTeam),
         awayTeam: initializeTeam(match.awayTeam),
         servingTeam: match.score.servingTeam || "home",
-        lastServingTeam: match.score.lastServingTeam || match.score.servingTeam || "home",
       }
     : {
         sets: [
@@ -74,7 +72,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         homeTeam: initializeTeam(match.homeTeam),
         awayTeam: initializeTeam(match.awayTeam),
         servingTeam: "home",
-        lastServingTeam: "home",
       }
 
   const [score, setScore] = useState<VolleyballScore>(initialScore)
@@ -117,7 +114,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
               sets: setsArray,
               numberOfSets: data.config.numberOfSets,
               servingTeam: data.config.servingTeam || prev.servingTeam,
-              lastServingTeam: data.config.servingTeam || prev.lastServingTeam,
             }))
           }
           
@@ -159,7 +155,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         })) : score.sets,
         currentSet: Number(match.score.currentSet) ?? score.currentSet,
         servingTeam: match.score.servingTeam || score.servingTeam,
-        lastServingTeam: match.score.lastServingTeam || score.lastServingTeam,
         homeTeam: score.homeTeam, // Preserve team structure
         awayTeam: score.awayTeam, // Preserve team structure
       }
@@ -224,109 +219,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
     }
   }, [score, match.id, match.status, volleyballConfig?.configCompleted])
 
-  // Rotate players clockwise (official volleyball rotation)
-  // Libero can only be in back row (1, 5, 6). When libero would rotate to front (2, 3, 4), 
-  // replace with 7th player (non-libero substitute)
-  const rotateTeamClockwise = (team: "home" | "away") => {
-    setScore((prevScore) => {
-      const teamKey = team === "home" ? "homeTeam" : "awayTeam"
-      const teamData = prevScore[teamKey]
-      
-      // Get libero player
-      const libero = teamData.players.find(p => isLibero(p))
-      
-      // Get 7th player (first non-libero player not on court)
-      const nonLiberoPlayers = teamData.players.filter(p => !isLibero(p))
-      const seventhPlayer = nonLiberoPlayers.find(p => !p.isOnCourt)
-      
-      // Rotate clockwise: 1 → 6 → 5 → 4 → 3 → 2 → 1
-      const rotationMap: { [key: number]: number } = {
-        1: 6,
-        6: 5,
-        5: 4,
-        4: 3,
-        3: 2,
-        2: 1
-      }
-      
-      // First, calculate where each player would rotate to
-      const rotationPlan: { playerId: string; newPosition: number; isLibero: boolean }[] = []
-      teamData.players.forEach(player => {
-        if (player.isOnCourt && player.courtPosition) {
-          const newPosition = rotationMap[player.courtPosition] || player.courtPosition
-          rotationPlan.push({
-            playerId: player.id,
-            newPosition,
-            isLibero: isLibero(player)
-          })
-        }
-      })
-      
-      // Apply rotation, handling libero restrictions
-      const updatedPlayers = teamData.players.map(player => {
-        const plan = rotationPlan.find(p => p.playerId === player.id)
-        if (!plan) return player
-        
-        const wouldBeInFrontRow = isFrontRowPosition(plan.newPosition)
-        
-        // If libero would rotate to front row, remove from court
-        if (plan.isLibero && wouldBeInFrontRow) {
-          return {
-            ...player,
-            courtPosition: undefined,
-            isOnCourt: false
-          }
-        }
-        
-        // Regular player rotation
-        return {
-          ...player,
-          courtPosition: plan.newPosition,
-          isOnCourt: true
-        }
-      })
-      
-      // Handle libero replacement: if libero was removed, put 7th player in that position
-      if (libero) {
-        const liberoPlan = rotationPlan.find(p => p.playerId === libero.id && p.isLibero)
-        if (liberoPlan && isFrontRowPosition(liberoPlan.newPosition)) {
-          // Libero was removed from front row position - put 7th player there
-          if (seventhPlayer) {
-            const seventhIndex = updatedPlayers.findIndex(p => p.id === seventhPlayer.id)
-            if (seventhIndex !== -1) {
-              updatedPlayers[seventhIndex] = {
-                ...updatedPlayers[seventhIndex],
-                courtPosition: liberoPlan.newPosition,
-                isOnCourt: true
-              }
-            }
-          }
-        } else if (liberoPlan && isBackRowPosition(liberoPlan.newPosition)) {
-          // Libero can stay - ensure they're on court at the new position
-          const liberoIndex = updatedPlayers.findIndex(p => p.id === libero.id)
-          if (liberoIndex !== -1) {
-            updatedPlayers[liberoIndex] = {
-              ...updatedPlayers[liberoIndex],
-              courtPosition: liberoPlan.newPosition,
-              isOnCourt: true
-            }
-          }
-        }
-      }
-      
-      // Set the player in position 1 (back right) as the new server
-      const newServer = updatedPlayers.find(p => p.isOnCourt && p.courtPosition === 1)
-      
-      return {
-        ...prevScore,
-        [teamKey]: {
-          ...teamData,
-          players: updatedPlayers,
-          currentServer: newServer?.id
-        }
-      }
-    })
-  }
 
   // Update score for a team with official volleyball rules
   const updateScore = (team: "home" | "away", amount: number) => {
@@ -351,26 +243,12 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         }
       }
 
-      // Determine serving team and handle rotation
+      // Determine serving team - when serve changes, just shift from one team to the other
       let newServingTeam = prevScore.servingTeam
-      let shouldRotate = false
       
       if (amount > 0) {
         // Team that scored gets/keeps the serve
         newServingTeam = team
-        
-        // ROTATION RULE: If team wins service back (was not serving before), they rotate clockwise
-        if (prevScore.lastServingTeam && prevScore.lastServingTeam !== team) {
-          shouldRotate = true
-        }
-      }
-
-      const newScore = currentScore + amount
-      
-      // Apply rotation if needed (before returning)
-      if (shouldRotate && amount > 0) {
-        // Perform rotation immediately
-        setTimeout(() => rotateTeamClockwise(team), 100)
       }
       
       // Check if set is won (OFFICIAL RULES)
@@ -384,70 +262,70 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         // SET WON!
         const { homeWins: currentHomeWins, awayWins: currentAwayWins } = getSetWinsFromSets(newSets)
         
-        // Check if match is won
-        if (currentHomeWins >= setsToWin || currentAwayWins >= setsToWin) {
-          // MATCH COMPLETE - Call API to complete match
-          const winnerId = team === "home" ? match.homeTeam.id : match.awayTeam.id
-          const winnerName = team === "home" ? match.homeTeam.name : match.awayTeam.name
-          const finalScore = {
-            sets: newSets,
-            homeWins: currentHomeWins,
-            awayWins: currentAwayWins,
-            currentSet: currentSet,
-          }
-          
-          setTimeout(async () => {
-            try {
-              // Complete the match via API
-              await fetch(`/api/matches/${match.id}/complete`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  score: finalScore,
-                  winnerId: winnerId,
-                }),
-              })
-              
-              // Update match status
-              await fetch(`/api/matches/${match.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "completed" }),
-              })
-              
-              setMatchCompleted(true)
-              setWinnerInfo({
-                team,
-                name: winnerName,
-                setsWon: team === "home" ? currentHomeWins : currentAwayWins,
-                setsLost: team === "home" ? currentAwayWins : currentHomeWins,
-              })
-              setShowWinnerAnnouncement(true)
-              
-              toast({
-                title: "🏐 Match Complete!",
-                description: `${winnerName} wins ${team === "home" ? currentHomeWins : currentAwayWins}-${team === "home" ? currentAwayWins : currentHomeWins}!`,
-              })
-            } catch (error) {
-              console.error("Error completing match:", error)
-              toast({
-                title: "Error",
-                description: "Failed to save match result",
-                variant: "destructive",
-              })
-            }
+        // Move to next set automatically (always play all sets, even if match is already won)
+        const nextSet = currentSet + 1
+        const maxSets = prevScore.numberOfSets || 5
+        if (nextSet < maxSets) {
+          setTimeout(() => {
+            setCurrentSet(nextSet)
+            toast({
+              title: `✅ Set ${currentSet + 1} Complete!`,
+              description: `${team === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newScore}-${opponentScore}. Moving to Set ${nextSet + 1}.`,
+            })
           }, 100)
         } else {
-          // Move to next set automatically
-          const nextSet = currentSet + 1
-          const maxSets = prevScore.numberOfSets || 5
-          if (nextSet < maxSets) {
-            setTimeout(() => {
-              setCurrentSet(nextSet)
-              toast({
-                title: `✅ Set ${currentSet + 1} Complete!`,
-                description: `${team === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newScore}-${opponentScore}. Moving to Set ${nextSet + 1}.`,
-              })
+          // All sets completed - Check if match is won and complete
+          if (currentHomeWins >= setsToWin || currentAwayWins >= setsToWin) {
+            // MATCH COMPLETE - Call API to complete match
+            const winnerId = team === "home" ? match.homeTeam.id : match.awayTeam.id
+            const winnerName = team === "home" ? match.homeTeam.name : match.awayTeam.name
+            const finalScore = {
+              sets: newSets,
+              homeWins: currentHomeWins,
+              awayWins: currentAwayWins,
+              currentSet: currentSet,
+            }
+            
+            setTimeout(async () => {
+              try {
+                // Complete the match via API
+                await fetch(`/api/matches/${match.id}/complete`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    score: finalScore,
+                    winnerId: winnerId,
+                  }),
+                })
+                
+                // Update match status
+                await fetch(`/api/matches/${match.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "completed" }),
+                })
+                
+                setMatchCompleted(true)
+                setWinnerInfo({
+                  team,
+                  name: winnerName,
+                  setsWon: team === "home" ? currentHomeWins : currentAwayWins,
+                  setsLost: team === "home" ? currentAwayWins : currentHomeWins,
+                })
+                setShowWinnerAnnouncement(true)
+                
+                toast({
+                  title: "🏐 Match Complete!",
+                  description: `${winnerName} wins ${team === "home" ? currentHomeWins : currentAwayWins}-${team === "home" ? currentAwayWins : currentHomeWins}!`,
+                })
+              } catch (error) {
+                console.error("Error completing match:", error)
+                toast({
+                  title: "Error",
+                  description: "Failed to save match result",
+                  variant: "destructive",
+                })
+              }
             }, 100)
           }
         }
@@ -457,7 +335,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         ...prevScore,
         sets: newSets,
         servingTeam: newServingTeam,
-        lastServingTeam: newServingTeam, // Track last serving team for rotation detection
         currentSet: currentSet,
       }
     })
@@ -573,7 +450,6 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
     setScore((prev) => ({
       ...prev,
       servingTeam: config.servingTeam,
-      lastServingTeam: config.servingTeam,
     }))
     
     setShowTossDialog(false)
@@ -741,22 +617,12 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
                   <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
                   {isAdmin && match.status === "live" && (
                     <>
-                      <div className="flex justify-center gap-4 mb-3">
+                      <div className="flex justify-center gap-4">
                         <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
                           <MinusCircle className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
                           <PlusCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="flex justify-center">
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          onClick={() => rotateTeamClockwise("home")}
-                          className="text-xs"
-                        >
-                          🔄 Rotate
                         </Button>
                       </div>
                     </>
@@ -768,22 +634,12 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
                   <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
                   {isAdmin && match.status === "live" && (
                     <>
-                      <div className="flex justify-center gap-4 mb-3">
+                      <div className="flex justify-center gap-4">
                         <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
                           <MinusCircle className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
                           <PlusCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="flex justify-center">
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          onClick={() => rotateTeamClockwise("away")}
-                          className="text-xs"
-                        >
-                          🔄 Rotate
                         </Button>
                       </div>
                     </>

@@ -98,6 +98,12 @@ export default function CreateTournamentPage() {
   // Step 2: Add Sports
   const handleAddSport = async (sport: string) => {
     if (!tournamentId || selectedSports.includes(sport)) return
+    
+    // Prevent selecting more sports than specified in step 1
+    if (selectedSports.length >= sportsCount) {
+      alert(`You can only select ${sportsCount} ${sportsCount === 1 ? 'sport' : 'sports'}. Please remove a sport first.`)
+      return
+    }
 
     try {
       const tournamentSport = await addTournamentSport(
@@ -492,25 +498,31 @@ export default function CreateTournamentPage() {
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {sportOptions.map((sport) => (
-                    <motion.div
-                      key={sport.id}
-                      whileHover={{ scale: 1.02 }}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedSports.includes(sport.id)
-                          ? "border-primary bg-primary/10"
-                          : "hover:border-primary/50"
-                      }`}
-                      onClick={() => handleAddSport(sport.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{sport.name}</span>
-                        {selectedSports.includes(sport.id) && (
-                          <Badge className="bg-primary">Selected</Badge>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                  {sportOptions.map((sport) => {
+                    const isSelected = selectedSports.includes(sport.id)
+                    const isDisabled = !isSelected && selectedSports.length >= sportsCount
+                    return (
+                      <motion.div
+                        key={sport.id}
+                        whileHover={!isDisabled ? { scale: 1.02 } : {}}
+                        className={`p-4 border-2 rounded-lg transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/10 cursor-pointer"
+                            : isDisabled
+                            ? "border-muted bg-muted/30 cursor-not-allowed opacity-50"
+                            : "hover:border-primary/50 cursor-pointer"
+                        }`}
+                        onClick={() => !isDisabled && handleAddSport(sport.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{sport.name}</span>
+                          {isSelected && (
+                            <Badge className="bg-primary">Selected</Badge>
+                          )}
+                        </div>
+                      </motion.div>
+                    )
+                  })}
                 </div>
 
                 {selectedSports.length > 0 && (
@@ -599,13 +611,16 @@ export default function CreateTournamentPage() {
                     <div className="flex-1">
                       <Label className="text-sm font-medium">Select Group to Add Teams</Label>
                       <Select value={selectedGroupForAdd} onValueChange={setSelectedGroupForAdd}>
-                        <SelectTrigger className="mt-1">
+                        <SelectTrigger className="mt-1 focus:ring-0 focus:ring-offset-0 border-gray-300">
                           <SelectValue placeholder="Choose a group" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[300px]">
                           {currentGroups.map((group) => (
                             <SelectItem key={group.id} value={group.id}>
-                              {group.groupName} ({groupTeams[group.id]?.length || 0} teams)
+                              <div className="flex items-center justify-between w-full">
+                                <span className="truncate">{group.groupName}</span>
+                                <span className="text-xs text-muted-foreground ml-2">({groupTeams[group.id]?.length || 0} teams)</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -733,7 +748,7 @@ export default function CreateTournamentPage() {
                         </div>
                       </Card>
                     ) : (
-                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                      <div className="space-y-2 max-h-96 overflow-y-auto overflow-x-hidden">
                         {availableTeams.map((team) => {
                           const isInAnyGroup = currentGroups.some(
                             (g) => (groupTeams[g.id] || []).some((gt) => gt.teamId === team.id)
@@ -748,12 +763,12 @@ export default function CreateTournamentPage() {
                               whileTap={{ scale: 0.98 }}
                             >
                               <Card
-                                className={`p-3 cursor-pointer transition-all ${
+                                className={`p-3 cursor-pointer transition-all border-gray-300 ${
                                   isInAnyGroup 
                                     ? "opacity-50 border-muted" 
                                     : selectedGroupForAdd 
-                                      ? "hover:border-primary hover:bg-primary/5" 
-                                      : "hover:border-primary/50"
+                                      ? "hover:border-gray-400 hover:bg-gray-50" 
+                                      : "hover:border-gray-400"
                                 } ${!selectedGroupForAdd ? "cursor-not-allowed" : ""}`}
                                 onClick={() => {
                                   if (!selectedGroupForAdd) {
@@ -765,10 +780,10 @@ export default function CreateTournamentPage() {
                                   }
                                 }}
                               >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3 flex-1">
+                                <div className="flex items-center justify-between gap-2 min-w-0">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
                                     {team.logo && (
-                                      <div className="w-10 h-10 relative border rounded-full overflow-hidden bg-white">
+                                      <div className="w-10 h-10 flex-shrink-0 relative border rounded-full overflow-hidden bg-white">
                                         <Image
                                           src={team.logo}
                                           alt={team.name}
@@ -778,16 +793,16 @@ export default function CreateTournamentPage() {
                                         />
                                       </div>
                                     )}
-                                    <span className="font-medium">{team.name}</span>
+                                    <span className="font-medium truncate">{team.name}</span>
                                   </div>
                                   {isInAnyGroup ? (
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary" className="text-xs">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
                                         In {teamGroup?.groupName}
                                       </Badge>
                                     </div>
                                   ) : (
-                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
                                       <Plus className="h-4 w-4" />
                                     </Button>
                                   )}

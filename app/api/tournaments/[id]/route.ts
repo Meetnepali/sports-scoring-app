@@ -4,7 +4,8 @@ import { requireAdmin } from "@/lib/authorization"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tournament = await getTournamentById(params.id)
+    const { id } = await params
+    const tournament = await getTournamentById(id)
 
     if (!tournament) {
       return NextResponse.json({ error: "Tournament not found" }, { status: 404 })
@@ -24,17 +25,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   try {
+    const { id } = await params
     const body = await request.json()
     const { name, status, matches, bracketConfig } = body
 
-    await updateTournament(params.id, {
+    await updateTournament(id, {
       name,
       status,
       matches,
       bracketConfig,
     })
 
-    const tournament = await getTournamentById(params.id)
+    const tournament = await getTournamentById(id)
     return NextResponse.json(tournament)
   } catch (error) {
     console.error("Error updating tournament:", error)
@@ -49,7 +51,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   }
 
   try {
-    await deleteTournament(params.id)
+    const { id } = await params
+    await deleteTournament(id)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error deleting tournament:", error)

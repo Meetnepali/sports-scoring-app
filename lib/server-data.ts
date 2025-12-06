@@ -654,52 +654,21 @@ export async function createTournament(tournamentData: {
 
 export async function getAllTournamentsFromDB(): Promise<Tournament[]> {
   try {
-    // Get only tournaments that are fully set up with all fixtures
-    // A tournament is complete when:
-    // 1. It has at least one sport
-    // 2. Each sport has at least one group
-    // 3. Each group has at least one team
-    // 4. Each group has at least one fixture/match
+    // Get all tournaments from the database
     const tournaments = await query(`
-      SELECT DISTINCT t.*
-      FROM tournaments t
-      WHERE EXISTS (
-        -- Tournament has at least one sport
-        SELECT 1 FROM tournament_sports ts WHERE ts.tournament_id = t.id
-      )
-      AND EXISTS (
-        -- Tournament has at least one group
-        SELECT 1 FROM tournament_groups tg WHERE tg.tournament_id = t.id
-      )
-      AND NOT EXISTS (
-        -- No groups without teams
-        SELECT 1
-        FROM tournament_groups tg
-        WHERE tg.tournament_id = t.id
-        AND NOT EXISTS (
-          SELECT 1 FROM group_teams gt WHERE gt.group_id = tg.id
-        )
-      )
-      AND NOT EXISTS (
-        -- No groups without fixtures
-        SELECT 1
-        FROM tournament_groups tg
-        WHERE tg.tournament_id = t.id
-        AND NOT EXISTS (
-          SELECT 1 FROM group_matches gm WHERE gm.group_id = tg.id
-        )
-      )
-      ORDER BY t.created_at DESC
+      SELECT *
+      FROM tournaments
+      ORDER BY created_at DESC
     `)
 
     return tournaments.map((row: any) => ({
       id: row.id,
-      name: row.name,
-      sport: row.sport,
-      format: row.format,
-      bracketType: row.bracket_type,
-      status: row.status,
-      startDate: row.start_date,
+      name: row.name || 'Unnamed Tournament',
+      sport: row.sport || undefined,
+      format: row.format || 'single-elimination',
+      bracketType: row.bracket_type || 'single',
+      status: row.status || 'upcoming',
+      startDate: row.start_date || new Date().toISOString().split('T')[0],
       teams: row.teams || [],
       matches: row.matches || [],
       teamLogos: row.team_logos || {},

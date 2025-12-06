@@ -45,6 +45,15 @@ export async function POST(
       )
     }
 
+    // Validate extra_type if provided
+    const validExtraTypes = ['wide', 'noball', 'bye', 'legbye']
+    if (extraType && !validExtraTypes.includes(extraType)) {
+      return NextResponse.json(
+        { error: `Invalid extra type: ${extraType}. Must be one of: ${validExtraTypes.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
     // Validate wicket_type if wicket is taken
     const validWicketTypes = ['bowled', 'caught', 'lbw', 'run_out', 'stumped', 'hit_wicket', 'caught_and_bowled', 'retired_hurt', 'obstructing_field', 'hit_ball_twice', 'timed_out']
     if (isWicket && wicketType && !validWicketTypes.includes(wicketType)) {

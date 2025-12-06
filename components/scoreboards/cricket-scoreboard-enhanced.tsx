@@ -79,13 +79,16 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       },
     ],
     currentInnings: 0,
+    striker: "",
+    nonStriker: "",
+    currentBowler: "",
   }
 
   const [score, setScore] = useState(initialScore)
   const [currentInnings, setCurrentInnings] = useState(score.currentInnings || 0)
-  const [striker, setStriker] = useState("")
-  const [nonStriker, setNonStriker] = useState("")
-  const [currentBowler, setCurrentBowler] = useState("")
+  const [striker, setStriker] = useState(score.striker || "")
+  const [nonStriker, setNonStriker] = useState(score.nonStriker || "")
+  const [currentBowler, setCurrentBowler] = useState(score.currentBowler || "")
   const [lastBowler, setLastBowler] = useState<string | null>(null) // Track last bowler to prevent consecutive overs
   const [overCompleteRequiresBowler, setOverCompleteRequiresBowler] = useState(false) // Flag when over completes and needs new bowler
   const [scoreHistory, setScoreHistory] = useState<any[]>([])
@@ -94,6 +97,8 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   const [bowlerStats, setBowlerStats] = useState<BowlerStats>({})
   const [matchCompleted, setMatchCompleted] = useState(false)
   const [showManOfMatch, setShowManOfMatch] = useState(false)
+  const [currentOverBalls, setCurrentOverBalls] = useState<Array<{display: string, isWicket?: boolean}>>([]) // Track ball-by-ball in current over
+  const [showExtraDialog, setShowExtraDialog] = useState<"wides" | "noBalls" | "byes" | "legByes" | null>(null) // For extra runs selection
 
   // Determine batting and bowling teams
   const battingTeamId = config?.elected_to_bat_first_team_id
@@ -114,6 +119,32 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   useEffect(() => {
     fetchConfig()
   }, [match.id])
+
+  // Save player selections whenever they change
+  useEffect(() => {
+    if (isAdmin && (striker || nonStriker || currentBowler)) {
+      const savePlayerSelections = async () => {
+        try {
+          const updatedScore = {
+            ...score,
+            striker,
+            nonStriker,
+            currentBowler,
+          }
+          await fetch(`/api/matches/${match.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ score: updatedScore }),
+          })
+        } catch (error) {
+          // Silently fail - not critical
+        }
+      }
+      // Debounce to avoid too many calls
+      const timeoutId = setTimeout(savePlayerSelections, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [striker, nonStriker, currentBowler, isAdmin])
 
   const fetchConfig = async () => {
     try {
@@ -297,13 +328,19 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       }
     }
 
-    // Save score to database
-    const saveScoreToDb = async (scoreToSave: any) => {
+    // Save score to database with current player states
+    const saveScoreToDb = async (scoreToSave: any, strikerToSave?: string, nonStrikerToSave?: string, bowlerToSave?: string) => {
       try {
+        const updatedScore = {
+          ...scoreToSave,
+          striker: strikerToSave !== undefined ? strikerToSave : striker,
+          nonStriker: nonStrikerToSave !== undefined ? nonStrikerToSave : nonStriker,
+          currentBowler: bowlerToSave !== undefined ? bowlerToSave : currentBowler,
+        }
         await fetch(`/api/matches/${match.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score: scoreToSave }),
+          body: JSON.stringify({ score: updatedScore }),
         })
       } catch (error) {
         console.error("Error saving score:", error)
@@ -342,6 +379,11 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     // Add ball to over count
     const totalBalls = oversToTotalBalls(innings.overs)
     innings.overs = ballsToOvers(totalBalls + 1)
+    
+    // Track ball in current over
+    const ballDisplay = runs === 0 ? "•" : runs === 4 ? "4" : runs === 6 ? "6" : runs.toString()
+    const newOverBalls = [...currentOverBalls, { display: ballDisplay, isWicket: false, isBoundary: runs === 4 || runs === 6 }]
+    setCurrentOverBalls(newOverBalls)
     
     // Update player stats
     setPlayerStats((prev) => ({
@@ -394,6 +436,9 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       setLastBowler(currentBowler)
       setCurrentBowler("") // Clear current bowler - must select new one
       setOverCompleteRequiresBowler(true)
+      
+      // Clear current over balls
+      setCurrentOverBalls([])
       
       toast({
         title: "Over Complete!",
@@ -452,6 +497,10 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       const totalBalls = oversToTotalBalls(innings.overs)
       innings.overs = ballsToOvers(totalBalls + 1)
       
+      // Track wicket ball in current over
+      const newOverBalls = [...currentOverBalls, { display: "W", isWicket: true, isBoundary: false }]
+      setCurrentOverBalls(newOverBalls)
+      
       // Update player stats - mark as out
       setPlayerStats((prev) => ({
         ...prev,
@@ -499,6 +548,9 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
         setLastBowler(currentBowler)
         setCurrentBowler("") // Clear current bowler - must select new one
         setOverCompleteRequiresBowler(true)
+        
+        // Clear current over balls
+        setCurrentOverBalls([])
       }
       
       // Show wicket animation
@@ -552,38 +604,65 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     const newScore = JSON.parse(JSON.stringify(score))
     const innings = newScore.innings[currentInnings]
     
+    // For no balls and wides: 
+    // - The 'runs' parameter is the TOTAL runs to add to extras (includes penalty + runs scored)
+    // For byes and leg byes:
+    // - The 'runs' parameter is just the runs scored
+    
     // Add to extras
     innings.extras[type] += runs
     
-    // Add runs to total (for wides and no-balls)
-    if (type === "wides" || type === "noBalls") {
-      innings.runs += runs
+    // Add runs to total score
+    innings.runs += runs
+    
+    // Only add ball to over if not wide/no-ball (byes and leg byes are legal deliveries)
+    const isLegalBall = type === "byes" || type === "legByes"
+    let wasOverComplete = false
+    if (isLegalBall) {
+      const totalBalls = oversToTotalBalls(innings.overs)
+      innings.overs = ballsToOvers(totalBalls + 1)
+      
+      // Check if over complete
+      wasOverComplete = (totalBalls + 1) % 6 === 0
+      if (wasOverComplete) {
+        // Over complete - swap strike
+        const temp = striker
+        setStriker(nonStriker)
+        setNonStriker(temp)
+        
+        // Set last bowler and require new bowler selection
+        setLastBowler(currentBowler)
+        setCurrentBowler("") // Clear current bowler - must select new one
+        setOverCompleteRequiresBowler(true)
+        
+        // Clear current over balls
+        setCurrentOverBalls([])
+      }
     }
     
-      // Only add ball to over if not wide/no-ball
-      const isLegalBall = type === "byes" || type === "legByes"
-      let wasOverComplete = false
-      if (isLegalBall) {
-        const totalBalls = oversToTotalBalls(innings.overs)
-        innings.overs = ballsToOvers(totalBalls + 1)
-        
-        // Check if over complete
-        wasOverComplete = (totalBalls + 1) % 6 === 0
-        if (wasOverComplete) {
-          // Over complete - swap strike
-          const temp = striker
-          setStriker(nonStriker)
-          setNonStriker(temp)
-          
-          // Set last bowler and require new bowler selection
-          setLastBowler(currentBowler)
-          setCurrentBowler("") // Clear current bowler - must select new one
-          setOverCompleteRequiresBowler(true)
-        }
-      }
+    // Track ball in current over
+    const displayMap: Record<string, string> = {
+      "wides": `${runs}wd`,
+      "noBalls": `${runs}nb`,
+      "byes": `${runs}b`,
+      "legByes": `${runs}lb`,
+    }
+    if (!wasOverComplete) {
+      const newOverBalls = [...currentOverBalls, { display: displayMap[type], isWicket: false, isBoundary: false }]
+      setCurrentOverBalls(newOverBalls)
+    }
 
-      // Record to database - use current over state
-      const totalBalls = oversToTotalBalls(innings.overs)
+    // Record to database - use current over state
+    const totalBalls = oversToTotalBalls(innings.overs)
+    
+    // Map frontend extra types to database format
+    const extraTypeMap: Record<string, string> = {
+      "wides": "wide",
+      "noBalls": "noball",
+      "byes": "bye",
+      "legByes": "legbye"
+    }
+    
     await recordBallToDb({
       inningsNumber: currentInnings + 1,
       overNumber: Math.floor(totalBalls / 6),
@@ -592,7 +671,7 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       batsmanStrikerId: striker,
       batsmanNonStrikerId: nonStriker,
       runsScored: 0,
-      extraType: type,
+      extraType: extraTypeMap[type],
       extraRuns: runs,
       isWicket: false,
     })
@@ -621,6 +700,7 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
       setCurrentBowler("")
       setLastBowler(null) // Reset last bowler for new innings
       setOverCompleteRequiresBowler(false) // Reset over complete flag
+      setCurrentOverBalls([]) // Clear current over balls for new innings
       
       // Save score update
       saveScoreToDb(updatedScore)
@@ -697,11 +777,18 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
 
   // Get current over balls for display
   const getCurrentOverBalls = () => {
-    const totalBalls = oversToTotalBalls(currentInningsData.overs)
-    const ballsInOver = totalBalls % 6
-    return Array.from({ length: 6 }, (_, i) => ({
-      bowled: i < ballsInOver,
+    const ballsInOver = currentOverBalls.length
+    // Pad with empty slots to make 6 balls total
+    const paddedBalls = [...currentOverBalls]
+    while (paddedBalls.length < 6) {
+      paddedBalls.push({ display: "", isWicket: false, isBoundary: false })
+    }
+    return paddedBalls.map((ball, i) => ({
+      display: ball.display || (i + 1).toString(),
+      bowled: ball.display !== "",
       current: i === ballsInOver,
+      isWicket: ball.isWicket,
+      isBoundary: ball.isBoundary,
     }))
   }
 
@@ -973,102 +1060,110 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
                 {getCurrentOverBalls().map((ball, i) => (
                   <div
                     key={i}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${
                       ball.current
                         ? "bg-blue-500 text-white animate-pulse"
+                        : ball.isWicket
+                        ? "bg-red-600 text-white"
+                        : ball.isBoundary
+                        ? "bg-purple-600 text-white"
                         : ball.bowled
                         ? "bg-green-500 text-white"
                         : "bg-gray-200 text-gray-400"
                     }`}
                   >
-                    {i + 1}
+                    {ball.bowled ? ball.display : i + 1}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Player Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
-              <div>
-                <label className="text-sm font-semibold mb-2 block">⚡ Striker (Batting)</label>
-                <Select value={striker} onValueChange={setStriker}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select striker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableBatsmen().map((player) => (
-                      <SelectItem key={player.id} value={player.id}>
-                        {player.name}
-                        {playerStats[player.id] && ` (${playerStats[player.id].runs}*)`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Player Selection - ADMIN ONLY */}
+            {isAdmin && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">⚡ Striker (Batting)</label>
+                    <Select value={striker} onValueChange={setStriker}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Select striker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableBatsmen().map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.name}
+                            {playerStats[player.id] && ` (${playerStats[player.id].runs}*)`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Non-Striker</label>
-                <Select value={nonStriker} onValueChange={setNonStriker}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Select non-striker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableBatsmen().map((player) => (
-                      <SelectItem key={player.id} value={player.id} disabled={player.id === striker}>
-                        {player.name}
-                        {playerStats[player.id] && ` (${playerStats[player.id].runs}*)`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">Non-Striker</label>
+                    <Select value={nonStriker} onValueChange={setNonStriker}>
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Select non-striker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableBatsmen().map((player) => (
+                          <SelectItem key={player.id} value={player.id} disabled={player.id === striker}>
+                            {player.name}
+                            {playerStats[player.id] && ` (${playerStats[player.id].runs}*)`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <label className="text-sm font-semibold mb-2 block">🎯 Current Bowler</label>
-                <Select 
-                  value={currentBowler} 
-                  onValueChange={(value) => {
-                    setCurrentBowler(value)
-                    setOverCompleteRequiresBowler(false) // Clear flag when bowler selected
-                  }}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder={overCompleteRequiresBowler ? "Select new bowler (over complete)" : "Select bowler"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableBowlers().map((player) => {
-                      const oversBowled = bowlerStats[player.id]?.overs || 0
-                      const isLastBowler = lastBowler === player.id && overCompleteRequiresBowler
-                      return (
-                        <SelectItem 
-                          key={player.id} 
-                          value={player.id}
-                          disabled={isLastBowler}
-                        >
-                          {player.name}
-                          {oversBowled > 0 && ` (${formatOvers(oversBowled)} ov)`}
-                          {isLastBowler && " - Cannot bowl consecutive overs"}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-                {overCompleteRequiresBowler && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    ⚠️ Over complete. Please select a different bowler.
-                  </p>
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">🎯 Current Bowler</label>
+                    <Select 
+                      value={currentBowler} 
+                      onValueChange={(value) => {
+                        setCurrentBowler(value)
+                        setOverCompleteRequiresBowler(false) // Clear flag when bowler selected
+                      }}
+                    >
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder={overCompleteRequiresBowler ? "Select new bowler (over complete)" : "Select bowler"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableBowlers().map((player) => {
+                          const oversBowled = bowlerStats[player.id]?.overs || 0
+                          const isLastBowler = lastBowler === player.id && overCompleteRequiresBowler
+                          return (
+                            <SelectItem 
+                              key={player.id} 
+                              value={player.id}
+                              disabled={isLastBowler}
+                            >
+                              {player.name}
+                              {oversBowled > 0 && ` (${formatOvers(oversBowled)} ov)`}
+                              {isLastBowler && " - Cannot bowl consecutive overs"}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {overCompleteRequiresBowler && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        ⚠️ Over complete. Please select a different bowler.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Warnings */}
+                {(!striker || !currentBowler) && (
+                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center">
+                    <p className="text-red-700 font-semibold flex items-center justify-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Please select striker and bowler to start scoring
+                    </p>
+                  </div>
                 )}
-              </div>
-            </div>
-
-            {/* Warnings */}
-            {(!striker || !currentBowler) && (
-              <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center">
-                <p className="text-red-700 font-semibold flex items-center justify-center gap-2">
-                  <AlertCircle className="h-4 w-4" />
-                  Please select striker and bowler to start scoring
-                </p>
-              </div>
+              </>
             )}
 
             {matchCompleted && (
@@ -1129,28 +1224,28 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
                       <h3 className="font-bold text-center mb-3">Extras (Total: {totalExtras})</h3>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
-                          onClick={() => recordExtra("wides")}
+                          onClick={() => setShowExtraDialog("wides")}
                           className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
                           disabled={!currentBowler || matchCompleted || match.status !== "live"}
                         >
                           Wide
                         </Button>
                         <Button
-                          onClick={() => recordExtra("noBalls")}
+                          onClick={() => setShowExtraDialog("noBalls")}
                           className="h-12 bg-orange-200 hover:bg-orange-300 text-orange-900"
                           disabled={!currentBowler || matchCompleted || match.status !== "live"}
                         >
                           No Ball
                         </Button>
                         <Button
-                          onClick={() => recordExtra("byes")}
+                          onClick={() => setShowExtraDialog("byes")}
                           className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
                           disabled={!currentBowler || matchCompleted || match.status !== "live"}
                         >
                           Bye
                         </Button>
                         <Button
-                          onClick={() => recordExtra("legByes")}
+                          onClick={() => setShowExtraDialog("legByes")}
                           className="h-12 bg-yellow-200 hover:bg-yellow-300 text-yellow-900"
                           disabled={!currentBowler || matchCompleted || match.status !== "live"}
                         >
@@ -1160,6 +1255,43 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
                     </div>
                   </div>
                 </div>
+
+                {/* Extra Runs Selection Dialog */}
+                {showExtraDialog && (
+                  <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-4 rounded-lg border-2 border-orange-300">
+                    <h3 className="font-bold text-center mb-3 text-lg">
+                      {showExtraDialog === "wides" && "Wide - Select Total Runs (1 + runs scored)"}
+                      {showExtraDialog === "noBalls" && "No Ball - Select Total Runs (1 + runs scored)"}
+                      {showExtraDialog === "byes" && "Bye - Select Runs"}
+                      {showExtraDialog === "legByes" && "Leg Bye - Select Runs"}
+                    </h3>
+                    <div className="grid grid-cols-7 gap-2 mb-3">
+                      {[1, 2, 3, 4, 5, 6, 7].map((runs) => (
+                        <Button
+                          key={runs}
+                          onClick={() => {
+                            recordExtra(showExtraDialog, runs)
+                            setShowExtraDialog(null)
+                          }}
+                          className={`h-14 text-xl font-bold ${
+                            runs === 5 || runs === 7
+                              ? "bg-purple-400 hover:bg-purple-500 text-white"
+                              : "bg-orange-300 hover:bg-orange-400 text-orange-900"
+                          }`}
+                        >
+                          {runs}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button
+                      onClick={() => setShowExtraDialog(null)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 justify-center pt-2">

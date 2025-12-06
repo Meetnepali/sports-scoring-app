@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Undo2, Trophy } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 interface CricketScoreboardProps {
   match: Match
@@ -31,6 +32,8 @@ const ballsToOvers = (balls: number): number => {
 }
 
 export default function CricketScoreboard({ match }: CricketScoreboardProps) {
+  const { isAdmin } = useAuth()
+  
   const initialScore = match.score || {
     innings: [
       {
@@ -335,7 +338,9 @@ export default function CricketScoreboard({ match }: CricketScoreboardProps) {
           </div>
         </div>
 
-        {/* Player Selection - ALL IN ONE PLACE */}
+        {/* Player Selection - ADMIN ONLY */}
+        {isAdmin && (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
           <div>
             <label className="text-sm font-semibold mb-2 block">⚡ Striker (Batting)</label>
@@ -391,9 +396,13 @@ export default function CricketScoreboard({ match }: CricketScoreboardProps) {
           <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center">
             <p className="text-red-700 font-semibold">⚠️ Please select striker and bowler to start scoring</p>
           </div>
+            )}
+          </>
         )}
 
-        {/* Scoring Buttons - BIG AND CLEAR */}
+        {/* Scoring Buttons - ADMIN ONLY */}
+        {isAdmin && (
+          <>
         <div className="space-y-3">
           <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-300">
             <h3 className="font-bold text-center mb-3 text-lg">Record Runs</h3>
@@ -506,6 +515,8 @@ export default function CricketScoreboard({ match }: CricketScoreboardProps) {
             Switch Innings
           </Button>
         </div>
+          </>
+        )}
 
         {/* Extras Summary */}
         <div className="bg-gray-50 p-3 rounded-lg border text-sm">

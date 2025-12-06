@@ -69,6 +69,7 @@ export async function POST(
       tossDecision,
       selectedColor,
       whiteTeamId,
+      numberOfGames,
       configCompleted,
     } = body
 
@@ -90,15 +91,17 @@ export async function POST(
            toss_decision = $2,
            selected_color = $3,
            white_team_id = $4,
-           config_completed = $5,
+           number_of_games = COALESCE($5, 1),
+           config_completed = $6,
            updated_at = CURRENT_TIMESTAMP
-         WHERE match_id = $6
+         WHERE match_id = $7
          RETURNING *`,
         [
           tossWinnerTeamId || null,
           tossDecision || null,
           selectedColor || null,
           whiteTeamId || null,
+          numberOfGames || 1,
           configCompleted !== undefined ? configCompleted : (tossWinnerTeamId && tossDecision ? true : false),
           id,
         ]
@@ -118,8 +121,8 @@ export async function POST(
       const insertResult = await query(
         `INSERT INTO chess_match_config 
            (match_id, toss_winner_team_id, toss_decision, 
-            selected_color, white_team_id, config_completed)
-         VALUES ($1, $2, $3, $4, $5, $6)
+            selected_color, white_team_id, number_of_games, config_completed)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
           id,
@@ -127,6 +130,7 @@ export async function POST(
           tossDecision || null,
           selectedColor || null,
           whiteTeamId || null,
+          numberOfGames || 1,
           configCompleted !== undefined ? configCompleted : (tossWinnerTeamId && tossDecision ? true : false),
         ]
       )

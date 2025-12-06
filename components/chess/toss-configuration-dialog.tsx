@@ -99,6 +99,27 @@ export function TossConfigurationDialog({
       if (!response.ok) {
         throw new Error("Failed to save toss configuration")
       }
+      
+      const configData = await response.json()
+      
+      // Get the number of games from existing config and create games
+      const existingConfigResponse = await fetch(`/api/matches/${matchId}/chess/config`)
+      const existingConfigData = await existingConfigResponse.json()
+      const numberOfGames = existingConfigData.config?.number_of_games || 1
+      
+      // Now create the games
+      const gamesResponse = await fetch(`/api/matches/${matchId}/chess/games`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          numberOfGames,
+          whiteTeamId,
+        }),
+      })
+      
+      if (!gamesResponse.ok) {
+        throw new Error("Failed to create games")
+      }
 
       const tossWinnerName = tossWinner === homeTeam.id ? homeTeam.name : awayTeam.name
       const whiteTeamName = whiteTeamId === homeTeam.id ? homeTeam.name : awayTeam.name

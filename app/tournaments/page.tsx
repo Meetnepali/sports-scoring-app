@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { PageTransition } from "@/components/page-transition"
-import { Trophy, Calendar, Users, PlusCircle, Trash2, Loader2 } from "lucide-react"
+import { Trophy, Calendar, Trash2, Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
 import { getAllTournaments, deleteTournament } from "@/lib/client-api"
 import { LoadingSpinner } from "@/components/loading-spinner"
@@ -97,12 +97,6 @@ export default function TournamentsPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Tournaments</h1>
-            <Link href="/tournaments/create">
-              <Button className="flex items-center">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create Tournament
-              </Button>
-            </Link>
           </div>
           <LoadingSpinner />
         </div>
@@ -115,25 +109,13 @@ export default function TournamentsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Tournaments</h1>
-          <Link href="/tournaments/create">
-            <Button className="flex items-center">
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Create Tournament
-            </Button>
-          </Link>
         </div>
 
         {tournaments.length === 0 ? (
           <div className="text-center py-12">
             <Trophy className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No tournaments yet</h3>
-            <p className="text-muted-foreground mb-4">Create your first tournament to get started</p>
-            <Link href="/tournaments/create">
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create Tournament
-              </Button>
-            </Link>
+            <p className="text-muted-foreground">Create your first tournament to get started</p>
           </div>
         ) : (
           <>
@@ -152,9 +134,8 @@ export default function TournamentsPage() {
                         <Badge className={statusColors[tournament.status || 'upcoming']}>
                           {(tournament.status || 'upcoming').charAt(0).toUpperCase() + (tournament.status || 'upcoming').slice(1)}
                         </Badge>
-                        <div className="text-2xl font-bold">{sportIcons[tournament.sport]}</div>
                       </div>
-                      <CardTitle className="text-xl mt-2">{tournament.name}</CardTitle>
+                      <CardTitle className="text-xl mt-2">{tournament.name || 'Unnamed Tournament'}</CardTitle>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -178,12 +159,12 @@ export default function TournamentsPage() {
                         <div className="space-y-4">
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Trophy className="h-4 w-4 mr-2" />
-                            <span>{sportNames[tournament.sport] || 'Multi-Sport Tournament'}</span>
+                            <span>{tournament.sport ? (sportNames[tournament.sport] || tournament.sport) : 'Multi-Sport Tournament'}</span>
                           </div>
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Calendar className="h-4 w-4 mr-2" />
                             <span>
-                              {new Date(tournament.startDate).toLocaleDateString()} • {formatNames[tournament.format]}
+                              {tournament.startDate ? new Date(tournament.startDate).toLocaleDateString() : 'Date TBD'} • {tournament.format ? (formatNames[tournament.format] || tournament.format) : 'Format TBD'}
                             </span>
                           </div>
                         </div>

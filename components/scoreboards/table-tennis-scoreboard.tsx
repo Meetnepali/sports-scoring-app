@@ -267,75 +267,78 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
       if (amount > 0 && newScore >= pointsToWin && newScore - opponentScore >= 2) {
         // SET WON!
         const { homeWins, awayWins } = getSetWinsFromSets(newSets, pointsToWin)
-        const setsToWin = prevScore.setsToWin || tableTennisConfig?.setsToWin || 4
+        const setsToWin = prevScore.setsToWin || tableTennisConfig?.setsToWin || 2
 
-        // Check if match is won (best of 7)
-        if (homeWins >= setsToWin || awayWins >= setsToWin) {
-          // MATCH COMPLETE - Call API to complete match
-          const winnerId = team === "home" ? match.homeTeam.id : match.awayTeam.id
-          const winnerName = team === "home" ? match.homeTeam.name : match.awayTeam.name
-          const finalScore = {
-            sets: newSets,
-            homeWins,
-            awayWins,
-            currentSet,
-          }
-
-          setTimeout(async () => {
-            try {
-              await fetch(`/api/matches/${match.id}/complete`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  score: finalScore,
-                  winnerId: winnerId,
-                }),
-              })
-
-              await fetch(`/api/matches/${match.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: "completed" }),
-              })
-
-              setWinnerInfo({
-                team,
-                name: winnerName,
-                setsWon: team === "home" ? homeWins : awayWins,
-                setsLost: team === "home" ? awayWins : homeWins,
-              })
-              setShowWinnerDialog(true)
-
+        // Move to next set automatically (always play all sets, even if match is already won)
+        const nextSet = currentSet + 1
+        if (nextSet < newSets.length) {
+          setTimeout(() => {
+            // Check if next set has a type set, if not show dialog
+            if (!newSets[nextSet]?.type) {
+              setCurrentSet(nextSet)
+              setServingPlayer(servingPlayer === "home" ? "away" : "home") // Alternate server
+              setShowSetTypeDialog(true)
+            } else {
+              setCurrentSet(nextSet)
+              setServingPlayer(servingPlayer === "home" ? "away" : "home") // Alternate server
+              setIsDoubles(newSets[nextSet].type === "doubles")
               toast({
-                title: "🏓 Match Complete!",
-                description: `${winnerName} wins ${team === "home" ? homeWins : awayWins}-${team === "home" ? awayWins : homeWins}!`,
-              })
-            } catch (error) {
-              console.error("Error completing match:", error)
-              toast({
-                title: "Error",
-                description: "Failed to save match result",
-                variant: "destructive",
+                title: `✅ Set ${currentSet + 1} Complete!`,
+                description: `${team === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newScore}-${opponentScore}. Moving to Set ${nextSet + 1}.`,
               })
             }
-          }, 100)
+          }, 500)
         } else {
-          // Move to next set
-          const nextSet = currentSet + 1
-          if (nextSet < newSets.length) {
-            setTimeout(() => {
-              // Check if next set has a type set, if not show dialog
-              if (!newSets[nextSet]?.type) {
-                setCurrentSet(nextSet)
-                setServingPlayer(servingPlayer === "home" ? "away" : "home") // Alternate server
-                setShowSetTypeDialog(true)
-              } else {
-                setCurrentSet(nextSet)
-                setServingPlayer(servingPlayer === "home" ? "away" : "home") // Alternate server
-                setIsDoubles(newSets[nextSet].type === "doubles")
-                alert(`Set ${currentSet + 1} complete! ${team === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newScore}-${opponentScore}. Moving to Set ${nextSet + 1}.`)
+          // All sets completed - Check if match is won and complete
+          if (homeWins >= setsToWin || awayWins >= setsToWin) {
+            // MATCH COMPLETE - Call API to complete match
+            const winnerId = team === "home" ? match.homeTeam.id : match.awayTeam.id
+            const winnerName = team === "home" ? match.homeTeam.name : match.awayTeam.name
+            const finalScore = {
+              sets: newSets,
+              homeWins,
+              awayWins,
+              currentSet,
+            }
+
+            setTimeout(async () => {
+              try {
+                await fetch(`/api/matches/${match.id}/complete`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    score: finalScore,
+                    winnerId: winnerId,
+                  }),
+                })
+
+                await fetch(`/api/matches/${match.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "completed" }),
+                })
+
+                setWinnerInfo({
+                  team,
+                  name: winnerName,
+                  setsWon: team === "home" ? homeWins : awayWins,
+                  setsLost: team === "home" ? awayWins : homeWins,
+                })
+                setShowWinnerDialog(true)
+
+                toast({
+                  title: "🏓 Match Complete!",
+                  description: `${winnerName} wins ${team === "home" ? homeWins : awayWins}-${team === "home" ? awayWins : homeWins}!`,
+                })
+              } catch (error) {
+                console.error("Error completing match:", error)
+                toast({
+                  title: "Error",
+                  description: "Failed to save match result",
+                  variant: "destructive",
+                })
               }
-            }, 500)
+            }, 100)
           }
         }
       }

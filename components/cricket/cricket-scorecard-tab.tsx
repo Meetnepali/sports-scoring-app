@@ -151,8 +151,10 @@ export function CricketScorecardTab({
       )
     }
 
-    const totalRuns = battingStats.reduce((sum, b) => sum + b.runs_scored, 0) + (extrasData?.total_extras || 0)
-    const totalWickets = battingStats.filter((b) => b.is_out).length
+    // Get total from match score if available, otherwise calculate from player stats
+    const inningsData = match.score?.innings?.[innings - 1]
+    const totalRuns = inningsData?.runs || (battingStats.reduce((sum, b) => sum + b.runs_scored, 0) + (extrasData?.total_extras || 0))
+    const totalWickets = inningsData?.wickets !== undefined ? inningsData.wickets : battingStats.filter((b) => b.is_out).length
 
     return (
       <div className="space-y-4">

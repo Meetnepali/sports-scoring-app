@@ -79,6 +79,9 @@ export default function CreateMatchPage() {
   const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
   const [badmintonGameTypes, setBadmintonGameTypes] = useState<Array<"singles" | "doubles">>([])
 
+  // Chess-specific configuration
+  const [chessNumberOfGames, setChessNumberOfGames] = useState("1")
+
   // Fetch all teams from database
   useEffect(() => {
     async function fetchTeams() {
@@ -295,6 +298,23 @@ export default function CreateMatchPage() {
           })
         } catch (error) {
           console.error("Error saving table-tennis config:", error)
+          // Don't fail the match creation if config save fails
+        }
+      }
+
+      // If chess, save chess-specific configuration
+      if (selectedSport === "chess" && createdMatch?.id) {
+        try {
+          await fetch(`/api/matches/${createdMatch.id}/chess/config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              numberOfGames: parseInt(chessNumberOfGames),
+              configCompleted: false, // Will be completed when toss is done
+            }),
+          })
+        } catch (error) {
+          console.error("Error saving chess config:", error)
           // Don't fail the match creation if config save fails
         }
       }
@@ -594,6 +614,36 @@ export default function CreateMatchPage() {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Chess-specific configuration */}
+              {selectedSport === "chess" && (
+                <div className="bg-purple-50 p-4 rounded-lg border-2 border-purple-200 space-y-4">
+                  <h3 className="font-semibold text-purple-900 flex items-center gap-2">
+                    ♟️ Chess Match Configuration
+                  </h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="numberOfGames" className="text-base font-semibold">Number of Games *</Label>
+                    <Select value={chessNumberOfGames} onValueChange={setChessNumberOfGames} required>
+                      <SelectTrigger id="numberOfGames" className="h-12 bg-white">
+                        <SelectValue placeholder="Select number of games" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num} {num === 1 ? "Game" : "Games"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-purple-700">
+                      Each game will be played between players from both teams. Colors will alternate between games.
+                    </p>
+                  </div>
+                  <p className="text-xs text-purple-600">
+                    Note: Toss for color/side selection will be conducted when the match starts for the first time.
+                  </p>
                 </div>
               )}
 

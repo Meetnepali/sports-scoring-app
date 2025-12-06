@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Users } from "lucide-react"
 import type { Team } from "@/lib/static-data"
 
 interface TossConfigurationDialogProps {
@@ -35,7 +34,6 @@ export function TossConfigurationDialog({
   const [tossDecision, setTossDecision] = useState<"serve" | "table_side" | "">("")
   const [tableSideChoice, setTableSideChoice] = useState<"home" | "away" | "">("")
   const [oppositeTeamSideChoice, setOppositeTeamSideChoice] = useState<"home" | "away" | "">("")
-  const [firstSetType, setFirstSetType] = useState<"singles" | "doubles" | "">("")
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
@@ -64,16 +62,6 @@ export function TossConfigurationDialog({
       toast({
         title: "Incomplete Information",
         description: "Please select which table side the opposite team wants",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validate first set type
-    if (!firstSetType) {
-      toast({
-        title: "Incomplete Information",
-        description: "Please select the type for the first set",
         variant: "destructive",
       })
       return
@@ -108,30 +96,6 @@ export function TossConfigurationDialog({
         }),
       })
 
-      // Update match score to set first set type
-      if (response.ok) {
-        const matchResponse = await fetch(`/api/matches/${matchId}`)
-        const matchData = await matchResponse.json()
-        if (matchData.match) {
-          let score = matchData.match.score || {}
-          if (typeof score === 'string') {
-            score = JSON.parse(score)
-          }
-          if (!score.sets || !Array.isArray(score.sets)) {
-            const setsToWin = 2 // default, should come from config
-            score.sets = Array.from({ length: setsToWin === 2 ? 3 : setsToWin === 3 ? 5 : 7 }, () => ({ home: 0, away: 0, type: "singles" }))
-          }
-          if (score.sets[0]) {
-            score.sets[0].type = firstSetType
-          }
-          
-          await fetch(`/api/matches/${matchId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ score }),
-          })
-        }
-      }
 
       if (!response.ok) {
         throw new Error("Failed to save toss configuration")
@@ -298,36 +262,8 @@ export function TossConfigurationDialog({
             </div>
           )}
 
-          {/* First Set Type Selection */}
-          {tossWinner && tossDecision && (tossDecision === "serve" ? oppositeTeamSideChoice : tableSideChoice) && (
-            <div className="space-y-2">
-              <Label htmlFor="first-set-type" className="text-base font-semibold">
-                What type will be played for Set 1?
-              </Label>
-              <Select value={firstSetType} onValueChange={(val) => setFirstSetType(val as "singles" | "doubles")}>
-                <SelectTrigger id="first-set-type" className="h-12">
-                  <SelectValue placeholder="Select set type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="singles">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span className="font-medium">Singles</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="doubles">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span className="font-medium">Doubles</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {/* Summary */}
-          {tossWinner && tossDecision && (tossDecision === "serve" ? oppositeTeamSideChoice : tableSideChoice) && firstSetType && (
+          {tossWinner && tossDecision && (tossDecision === "serve" ? oppositeTeamSideChoice : tableSideChoice) && (
             <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
               <h4 className="font-semibold text-green-900 mb-2">Configuration Summary:</h4>
               <ul className="text-sm text-green-800 space-y-1">
@@ -358,9 +294,6 @@ export function TossConfigurationDialog({
                       : `${oppositeTeamSideChoice === "home" ? "Home" : "Away"} (${tossWinner === homeTeam.id ? awayTeam.name : homeTeam.name})`}
                   </span>
                 </li>
-                <li>
-                  • Set 1 Type: <span className="font-bold capitalize">{firstSetType}</span>
-                </li>
               </ul>
             </div>
           )}
@@ -372,7 +305,7 @@ export function TossConfigurationDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || !tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || (tossDecision === "serve" && !oppositeTeamSideChoice) || !firstSetType}
+            disabled={saving || !tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || (tossDecision === "serve" && !oppositeTeamSideChoice)}
             className="flex-1"
           >
             {saving ? "Saving..." : "Confirm Toss"}
