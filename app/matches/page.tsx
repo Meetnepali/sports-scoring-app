@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getMatchesByStatus, updateMatchStatus } from "@/lib/client-api"
+import { getMatchesByStatus, updateMatchStatus, deleteMatch } from "@/lib/client-api"
 import { MatchListItem } from "@/components/match-list-item"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Zap, CalendarClock, CheckCircle } from "lucide-react"
@@ -88,6 +88,29 @@ export default function MatchesPage() {
     }
   }
 
+  const handleDeleteMatch = async (matchId: string) => {
+    try {
+      await deleteMatch(matchId)
+      
+      toast({
+        title: "Match Deleted",
+        description: "The match has been permanently deleted.",
+      })
+      
+      // Reload matches to update the UI
+      await loadMatches()
+    } catch (error) {
+      console.error('Error deleting match:', error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete match"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
+      throw error // Re-throw to let the component handle the error state
+    }
+  }
+
   const renderMatchList = (matches: Match[], status: "live" | "scheduled" | "completed") => {
     if (loading) {
       return (
@@ -146,6 +169,7 @@ export default function MatchesPage() {
             status={status}
             onStartMatch={status === "scheduled" ? handleStartMatch : undefined}
             starting={startingMatchId === match.id}
+            onDelete={isAdmin ? handleDeleteMatch : undefined}
           />
         ))}
       </div>

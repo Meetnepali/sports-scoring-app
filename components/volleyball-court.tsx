@@ -201,10 +201,7 @@ export default function VolleyballCourt({
         >
           {player ? (
             <div className="text-center text-white">
-              <div className="font-bold text-xl sm:text-2xl leading-tight">{player.number}</div>
-              <div className="text-[9px] sm:text-[10px] leading-tight opacity-90 font-semibold">
-                {isPlayerLibero ? "LIB" : player.position.substring(0, 3).toUpperCase()}
-              </div>
+              <div className="font-bold text-2xl sm:text-3xl">{player.number}</div>
             </div>
           ) : (
             <div className="text-white font-bold text-xl sm:text-2xl">{position}</div>
@@ -262,10 +259,7 @@ export default function VolleyballCourt({
           `}
         >
           <div className="text-center text-white">
-            <div className="font-bold text-lg sm:text-xl leading-tight">{benchPlayer.number}</div>
-            <div className="text-[8px] sm:text-[9px] leading-tight opacity-90 font-semibold">
-              {isPlayerLibero ? "LIB" : benchPlayer.position.substring(0, 3).toUpperCase()}
-            </div>
+            <div className="font-bold text-xl sm:text-2xl">{benchPlayer.number}</div>
           </div>
           {isPlayerLibero && (
             <div className="absolute -bottom-1 -left-1 w-4 h-4 sm:w-5 sm:h-5 bg-purple-300 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-purple-800">
@@ -316,9 +310,9 @@ export default function VolleyballCourt({
                 ))}
               </div>
 
-              {/* Attack lines (3-meter lines) */}
-              <div className="absolute top-0 left-[30%] w-[2px] h-full bg-white opacity-70"></div>
-              <div className="absolute top-0 right-[30%] w-[2px] h-full bg-white opacity-70"></div>
+              {/* Attack lines (3-meter lines) - brighter white */}
+              <div className="absolute top-0 left-[30%] w-[3px] h-full bg-white"></div>
+              <div className="absolute top-0 right-[30%] w-[3px] h-full bg-white"></div>
 
               {/* Home court (left side) - RED TEAM */}
               <div className="absolute top-0 left-0 w-1/2 h-full">
@@ -328,32 +322,32 @@ export default function VolleyballCourt({
                 </div>
 
                 {/* Position 4 - Front Left */}
-                <div className="absolute" style={{ top: '18%', left: '20%' }}>
+                <div className="absolute" style={{ top: '18%', left: '15%' }}>
                   {renderPosition("home", 4)}
                 </div>
 
                 {/* Position 3 - Front Middle */}
-                <div className="absolute" style={{ top: '18%', left: '55%' }}>
+                <div className="absolute" style={{ top: '18%', left: '45%' }}>
                   {renderPosition("home", 3)}
                 </div>
 
-                {/* Position 2 - Middle Right (closer to net but not overlapping) */}
-                <div className="absolute" style={{ top: '45%', left: '55%' }}>
+                {/* Position 2 - Middle Right (away from net line) */}
+                <div className="absolute" style={{ top: '45%', left: '45%' }}>
                   {renderPosition("home", 2)}
                 </div>
 
                 {/* Position 1 - Back Right (Server position) */}
-                <div className="absolute" style={{ top: '72%', left: '55%' }}>
+                <div className="absolute" style={{ top: '72%', left: '45%' }}>
                   {renderPosition("home", 1)}
                 </div>
 
                 {/* Position 6 - Back Middle */}
-                <div className="absolute" style={{ top: '72%', left: '20%' }}>
+                <div className="absolute" style={{ top: '72%', left: '15%' }}>
                   {renderPosition("home", 6)}
                 </div>
 
                 {/* Position 5 - Middle Left */}
-                <div className="absolute" style={{ top: '45%', left: '20%' }}>
+                <div className="absolute" style={{ top: '45%', left: '15%' }}>
                   {renderPosition("home", 5)}
                 </div>
               </div>
@@ -366,32 +360,32 @@ export default function VolleyballCourt({
                 </div>
 
                 {/* Position 4 - Front Left (from their perspective, our right) */}
-                <div className="absolute" style={{ top: '18%', right: '20%' }}>
+                <div className="absolute" style={{ top: '18%', right: '15%' }}>
                   {renderPosition("away", 4)}
                 </div>
 
                 {/* Position 3 - Front Middle */}
-                <div className="absolute" style={{ top: '18%', right: '55%' }}>
+                <div className="absolute" style={{ top: '18%', right: '45%' }}>
                   {renderPosition("away", 3)}
                 </div>
 
-                {/* Position 2 - Middle Right */}
-                <div className="absolute" style={{ top: '45%', right: '55%' }}>
+                {/* Position 2 - Middle Right (away from net line) */}
+                <div className="absolute" style={{ top: '45%', right: '45%' }}>
                   {renderPosition("away", 2)}
                 </div>
 
                 {/* Position 1 - Back Right */}
-                <div className="absolute" style={{ top: '72%', right: '55%' }}>
+                <div className="absolute" style={{ top: '72%', right: '45%' }}>
                   {renderPosition("away", 1)}
                 </div>
 
                 {/* Position 6 - Back Middle */}
-                <div className="absolute" style={{ top: '72%', right: '20%' }}>
+                <div className="absolute" style={{ top: '72%', right: '15%' }}>
                   {renderPosition("away", 6)}
                 </div>
 
-                {/* Position 5 - Middle Left */}
-                <div className="absolute" style={{ top: '45%', right: '20%' }}>
+                {/* Position 5 - Middle Left (away from net line) */}
+                <div className="absolute" style={{ top: '45%', right: '15%' }}>
                   {renderPosition("away", 5)}
                 </div>
               </div>

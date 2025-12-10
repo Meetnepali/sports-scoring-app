@@ -28,17 +28,36 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
   const defaultPointsToWin = 21
   const defaultTotalGames = 3 // Best of 3
   
-  const initialScore = match.score ? {
+  // Check if we have new team match structure or old structure
+  const hasTeamMatchStructure = match.score?.matches && Array.isArray(match.score.matches)
+  
+  const initialScore = match.score ? (hasTeamMatchStructure ? {
+    // New team match structure
+    matches: match.score.matches,
+    currentMatch: Number(match.score.currentMatch) || 0,
+    matchWins: match.score.matchWins || { home: 0, away: 0 },
+    tieWinner: match.score.tieWinner || null,
+    servingTeam: match.score.servingTeam || "home",
+    pointsToWin: Number(match.score.pointsToWin) || defaultPointsToWin,
+  } : {
+    // Old games structure
     games: Array.isArray(match.score.games) ? match.score.games.map((game: any) => ({
       home: Number(game.home) || 0,
       away: Number(game.away) || 0,
-      type: game.type || "singles" // singles or doubles
+      type: game.type || "singles"
     })) : Array.from({ length: defaultTotalGames }, () => ({ home: 0, away: 0, type: "singles" })),
     currentGame: Number(match.score.currentGame) || 0,
     servingPlayer: match.score.servingPlayer || "home",
     pointsToWin: Number(match.score.pointsToWin) || defaultPointsToWin,
     gamesToWin: Number(match.score.gamesToWin) || defaultGamesToWin,
     isDoubles: match.score.isDoubles || false,
+  }) : (hasTeamMatchStructure ? {
+    matches: [],
+    currentMatch: 0,
+    matchWins: { home: 0, away: 0 },
+    tieWinner: null,
+    servingTeam: "home",
+    pointsToWin: defaultPointsToWin,
   } : {
     games: Array.from({ length: defaultTotalGames }, () => ({ home: 0, away: 0, type: "singles" })),
     currentGame: 0,
@@ -46,15 +65,19 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
     pointsToWin: defaultPointsToWin,
     gamesToWin: defaultGamesToWin,
     isDoubles: false,
-  }
+  })
 
   const [score, setScore] = useState(initialScore)
   const [currentGame, setCurrentGame] = useState(() => {
+    if (hasTeamMatchStructure) {
+      return Number(initialScore.currentMatch) || 0
+    }
     const gameIndex = Number(initialScore.currentGame)
     return !isNaN(gameIndex) && gameIndex >= 0 ? gameIndex : 0
   })
-  const [servingPlayer, setServingPlayer] = useState(score.servingPlayer)
-  const [isDoubles, setIsDoubles] = useState(score.isDoubles || false)
+  const [servingPlayer, setServingPlayer] = useState(hasTeamMatchStructure ? initialScore.servingTeam : initialScore.servingPlayer)
+  const [isDoubles, setIsDoubles] = useState(hasTeamMatchStructure ? false : (initialScore.isDoubles || false))
+  const [currentSet, setCurrentSet] = useState(0) // For team match structure
   const [showAnimation, setShowAnimation] = useState<{ team: "home" | "away"; value: number } | null>(null)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
   const [winnerInfo, setWinnerInfo] = useState<{ team: "home" | "away"; name: string; gamesWon: number; gamesLost: number } | null>(null)
@@ -217,9 +240,182 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
     }
   }, [showAnimation])
 
-  // Update score for a team with official badminton rules
+  // Helper to get player names
+  const getPlayerName = (playerId: string) => {
+    const allPlayers = [...match.homeTeam.players, ...match.awayTeam.players]
+    return allPlayers.find(p => p.id === playerId)?.name || "Unknown"
+  }
+
+  // Update score for a team
   const updateScore = (team: "home" | "away", amount: number) => {
     setScore((prevScore: any) => {
+      // Handle team match structure
+      if (prevScore.matches && Array.isArray(prevScore.matches)) {
+        const newMatches = [...prevScore.matches]
+        const currentMatchIndex = currentGame
+        
+        if (!newMatches[currentMatchIndex]) {
+          console.error(`Match at index ${currentMatchIndex} does not exist`)
+          return prevScore
+        }
+        
+        const currentMatch = newMatches[currentMatchIndex]
+        const newSets = [...currentMatch.sets]
+        
+        if (!newSets[currentSet]) {
+          console.error(`Set at index ${currentSet} does not exist`)
+          return prevScore
+        }
+        
+        const currentScore = Number(newSets[currentSet][team]) || 0
+        const opponentTeam = team === "home" ? "away" : "home"
+        const opponentScore = Number(newSets[currentSet][opponentTeam]) || 0
+
+        if (currentScore + amount < 0) return prevScore
+
+        newSets[currentSet] = {
+          ...newSets[currentSet],
+          [team]: currentScore + amount,
+        }
+
+        if (amount > 0) {
+          setShowAnimation({ team, value: amount })
+        }
+
+        let newServingPlayer = servingPlayer
+        if (amount > 0 && servingPlayer !== team) {
+          newServingPlayer = team
+          setServingPlayer(team)
+        }
+
+        const newScore = currentScore + amount
+        const pointsToWin = prevScore.pointsToWin || 21
+
+        // Check if set is won (best of 3 sets within each match)
+        if (amount > 0 && newScore >= pointsToWin && newScore - opponentScore >= 2) {
+          newMatches[currentMatchIndex] = {
+            ...currentMatch,
+            sets: newSets,
+          }
+          
+          // Count set wins in this match
+          const homeSetWins = newSets.filter(s => s.home > s.away && s.home >= pointsToWin).length
+          const awaySetWins = newSets.filter(s => s.away > s.home && s.away >= pointsToWin).length
+          
+          // Check if match is won (2 out of 3 sets)
+          if (homeSetWins >= 2 || awaySetWins >= 2) {
+            const matchWinner = homeSetWins >= 2 ? "home" : "away"
+            newMatches[currentMatchIndex].winner = matchWinner
+            
+            const newMatchWins = { ...prevScore.matchWins }
+            newMatchWins[matchWinner]++
+            
+            // Check if tie is won (2 out of 3 matches)
+            if (newMatchWins.home >= 2 || newMatchWins.away >= 2) {
+              const tieWinner = newMatchWins.home >= 2 ? "home" : "away"
+              
+              setTimeout(async () => {
+                try {
+                  await fetch(`/api/matches/${match.id}/complete`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      score: { ...prevScore, matches: newMatches, matchWins: newMatchWins, tieWinner },
+                      winnerId: tieWinner === "home" ? match.homeTeam.id : match.awayTeam.id,
+                    }),
+                  })
+                  
+                  await fetch(`/api/matches/${match.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "completed" }),
+                  })
+                  
+                  setWinnerInfo({
+                    team: tieWinner,
+                    name: tieWinner === "home" ? match.homeTeam.name : match.awayTeam.name,
+                    gamesWon: newMatchWins[tieWinner],
+                    gamesLost: tieWinner === "home" ? newMatchWins.away : newMatchWins.home,
+                  })
+                  setShowWinnerDialog(true)
+                  
+                  toast({
+                    title: "🏸 Tie Complete!",
+                    description: `${tieWinner === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newMatchWins[tieWinner]}-${tieWinner === "home" ? newMatchWins.away : newMatchWins.home}!`,
+                  })
+                } catch (error) {
+                  console.error("Error completing tie:", error)
+                }
+              }, 100)
+              
+              return {
+                ...prevScore,
+                matches: newMatches,
+                matchWins: newMatchWins,
+                tieWinner,
+                servingTeam: newServingPlayer,
+              }
+            }
+            
+            // Move to next match
+            const nextMatch = currentMatchIndex + 1
+            if (nextMatch < newMatches.length) {
+              setTimeout(() => {
+                setCurrentGame(nextMatch)
+                setCurrentSet(0)
+                toast({
+                  title: `✅ Match ${currentMatchIndex + 1} Complete!`,
+                  description: `${matchWinner === "home" ? match.homeTeam.name : match.awayTeam.name} wins. Moving to Match ${nextMatch + 1}.`,
+                })
+              }, 100)
+            }
+            
+            return {
+              ...prevScore,
+              matches: newMatches,
+              matchWins: newMatchWins,
+              currentMatch: nextMatch < newMatches.length ? nextMatch : currentMatchIndex,
+              servingTeam: newServingPlayer,
+            }
+          }
+          
+          // Move to next set in current match
+          const nextSet = currentSet + 1
+          if (nextSet < 3) {
+            setTimeout(() => {
+              setCurrentSet(nextSet)
+              toast({
+                title: `Set ${currentSet + 1} Complete!`,
+                description: `${team === "home" ? match.homeTeam.name : match.awayTeam.name} wins ${newScore}-${opponentScore}. Moving to Set ${nextSet + 1}.`,
+              })
+            }, 100)
+          }
+          
+          newMatches[currentMatchIndex] = {
+            ...currentMatch,
+            sets: newSets,
+          }
+          
+          return {
+            ...prevScore,
+            matches: newMatches,
+            servingTeam: newServingPlayer,
+          }
+        }
+
+        newMatches[currentMatchIndex] = {
+          ...currentMatch,
+          sets: newSets,
+        }
+
+        return {
+          ...prevScore,
+          matches: newMatches,
+          servingTeam: newServingPlayer,
+        }
+      }
+      
+      // Old games structure
       const newGames = [...prevScore.games]
       
       // Safety check: ensure current game exists

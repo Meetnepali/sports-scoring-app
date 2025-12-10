@@ -64,11 +64,13 @@ export function FixtureCreator({
   const [volleyballNumberOfSets, setVolleyballNumberOfSets] = useState<"3" | "5">("5")
   
   // Badminton-specific configuration
-  const [badmintonGamesToWin, setBadmintonGamesToWin] = useState<"2" | "3">("2")
+  const [badmintonNumberOfMatches, setBadmintonNumberOfMatches] = useState<"3" | "5" | "7">("3")
+  const [badmintonSetsPerMatch, setBadmintonSetsPerMatch] = useState<"2" | "3">("2")
   const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
   
   // Table Tennis-specific configuration
-  const [tableTennisSetsToWin, setTableTennisSetsToWin] = useState<"2" | "3" | "4">("2")
+  const [tableTennisNumberOfMatches, setTableTennisNumberOfMatches] = useState<"3" | "5" | "7">("3")
+  const [tableTennisSetsPerMatch, setTableTennisSetsPerMatch] = useState<"2" | "3" | "4">("2")
   const [tableTennisPointsToWin, setTableTennisPointsToWin] = useState<"11" | "21">("11")
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export function FixtureCreator({
     
     // Validate badminton configuration
     if (sport === "badminton") {
-      if (!badmintonGamesToWin || !badmintonPointsToWin) {
+      if (!badmintonNumberOfMatches || !badmintonSetsPerMatch || !badmintonPointsToWin) {
         setError("Please configure badminton match settings")
         return
       }
@@ -129,7 +131,7 @@ export function FixtureCreator({
     
     // Validate table tennis configuration
     if (sport === "table-tennis") {
-      if (!tableTennisSetsToWin || !tableTennisPointsToWin) {
+      if (!tableTennisNumberOfMatches || !tableTennisSetsPerMatch || !tableTennisPointsToWin) {
         setError("Please configure table tennis match settings")
         return
       }
@@ -165,15 +167,17 @@ export function FixtureCreator({
       // Add badminton configuration
       if (sport === "badminton") {
         requestBody.badmintonConfig = {
-          gamesToWin: parseInt(badmintonGamesToWin),
-          pointsToWinPerGame: parseInt(badmintonPointsToWin)
+          numberOfMatches: parseInt(badmintonNumberOfMatches),
+          setsPerMatch: parseInt(badmintonSetsPerMatch),
+          pointsToWinPerSet: parseInt(badmintonPointsToWin)
         }
       }
       
       // Add table tennis configuration
       if (sport === "table-tennis") {
         requestBody.tableTennisConfig = {
-          setsToWin: parseInt(tableTennisSetsToWin),
+          numberOfMatches: parseInt(tableTennisNumberOfMatches),
+          setsPerMatch: parseInt(tableTennisSetsPerMatch),
           pointsToWinPerSet: parseInt(tableTennisPointsToWin)
         }
       }
@@ -310,15 +314,17 @@ export function FixtureCreator({
       // Add badminton configuration
       if (sport === "badminton") {
         requestBody.badmintonConfig = {
-          gamesToWin: parseInt(badmintonGamesToWin),
-          pointsToWinPerGame: parseInt(badmintonPointsToWin)
+          numberOfMatches: parseInt(badmintonNumberOfMatches),
+          setsPerMatch: parseInt(badmintonSetsPerMatch),
+          pointsToWinPerSet: parseInt(badmintonPointsToWin)
         }
       }
       
       // Add table tennis configuration
       if (sport === "table-tennis") {
         requestBody.tableTennisConfig = {
-          setsToWin: parseInt(tableTennisSetsToWin),
+          numberOfMatches: parseInt(tableTennisNumberOfMatches),
+          setsPerMatch: parseInt(tableTennisSetsPerMatch),
           pointsToWinPerSet: parseInt(tableTennisPointsToWin)
         }
       }
@@ -474,6 +480,8 @@ export function FixtureCreator({
                 type="datetime-local"
                 value={matchDate}
                 onChange={(e) => setMatchDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                required
               />
             </div>
 
@@ -567,21 +575,34 @@ export function FixtureCreator({
               <h3 className="font-semibold text-yellow-900 flex items-center gap-2">
                 🏸 Badminton Match Configuration
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="gamesToWin" className="text-base font-semibold">Games Format *</Label>
-                  <Select value={badmintonGamesToWin} onValueChange={(val) => setBadmintonGamesToWin(val as "2" | "3")} required>
-                    <SelectTrigger id="gamesToWin" className="h-12 bg-white">
-                      <SelectValue placeholder="Select format" />
+                  <Label htmlFor="numberOfMatches" className="text-base font-semibold">Number of Matches *</Label>
+                  <Select value={badmintonNumberOfMatches} onValueChange={(val) => setBadmintonNumberOfMatches(val as "3" | "5" | "7")} required>
+                    <SelectTrigger id="numberOfMatches" className="h-12 bg-white">
+                      <SelectValue placeholder="Select number" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2">Best of 3 Games (First to 2 wins)</SelectItem>
-                      <SelectItem value="3">Best of 5 Games (First to 3 wins)</SelectItem>
+                      <SelectItem value="3">3 Matches</SelectItem>
+                      <SelectItem value="5">5 Matches</SelectItem>
+                      <SelectItem value="7">7 Matches</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pointsToWin" className="text-base font-semibold">Points to Win per Game *</Label>
+                  <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
+                  <Select value={badmintonSetsPerMatch} onValueChange={(val) => setBadmintonSetsPerMatch(val as "2" | "3")} required>
+                    <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">Best of 3 Sets (First to 2 wins)</SelectItem>
+                      <SelectItem value="3">Best of 5 Sets (First to 3 wins)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pointsToWin" className="text-base font-semibold">Points per Set *</Label>
                   <Select value={badmintonPointsToWin} onValueChange={(val) => setBadmintonPointsToWin(val as "11" | "15" | "21")} required>
                     <SelectTrigger id="pointsToWin" className="h-12 bg-white">
                       <SelectValue placeholder="Select points" />
@@ -595,7 +616,7 @@ export function FixtureCreator({
                 </div>
               </div>
               <p className="text-xs text-yellow-700">
-                Standard: First to {badmintonPointsToWin} points, win by 2, maximum {badmintonPointsToWin === "11" ? "15" : badmintonPointsToWin === "15" ? "19" : "30"} points
+                All {badmintonNumberOfMatches} matches will be played. Each match: {badmintonSetsPerMatch === "2" ? "3" : "5"} sets (first to {badmintonSetsPerMatch} wins). Each set: first to {badmintonPointsToWin} points, win by 2.
               </p>
               <p className="text-xs text-yellow-600">
                 Note: Toss for serve/court side will be conducted when the match starts for the first time.
@@ -609,11 +630,24 @@ export function FixtureCreator({
               <h3 className="font-semibold text-green-900 flex items-center gap-2">
                 🏓 Table Tennis Match Configuration
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="setsToWin" className="text-base font-semibold">Sets Format *</Label>
-                  <Select value={tableTennisSetsToWin} onValueChange={(val) => setTableTennisSetsToWin(val as "2" | "3" | "4")} required>
-                    <SelectTrigger id="setsToWin" className="h-12 bg-white">
+                  <Label htmlFor="numberOfMatches" className="text-base font-semibold">Number of Matches *</Label>
+                  <Select value={tableTennisNumberOfMatches} onValueChange={(val) => setTableTennisNumberOfMatches(val as "3" | "5" | "7")} required>
+                    <SelectTrigger id="numberOfMatches" className="h-12 bg-white">
+                      <SelectValue placeholder="Select number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 Matches</SelectItem>
+                      <SelectItem value="5">5 Matches</SelectItem>
+                      <SelectItem value="7">7 Matches</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
+                  <Select value={tableTennisSetsPerMatch} onValueChange={(val) => setTableTennisSetsPerMatch(val as "2" | "3" | "4")} required>
+                    <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
                       <SelectValue placeholder="Select format" />
                     </SelectTrigger>
                     <SelectContent>
@@ -624,7 +658,7 @@ export function FixtureCreator({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pointsToWin" className="text-base font-semibold">Points to Win per Set *</Label>
+                  <Label htmlFor="pointsToWin" className="text-base font-semibold">Points per Set *</Label>
                   <Select value={tableTennisPointsToWin} onValueChange={(val) => setTableTennisPointsToWin(val as "11" | "21")} required>
                     <SelectTrigger id="pointsToWin" className="h-12 bg-white">
                       <SelectValue placeholder="Select points" />
@@ -637,7 +671,7 @@ export function FixtureCreator({
                 </div>
               </div>
               <p className="text-xs text-green-700">
-                Standard: First to {tableTennisPointsToWin} points per set, win by 2 points
+                All {tableTennisNumberOfMatches} matches will be played. Each match: {tableTennisSetsPerMatch === "2" ? "3" : tableTennisSetsPerMatch === "3" ? "5" : "7"} sets (first to {tableTennisSetsPerMatch} wins). Each set: first to {tableTennisPointsToWin} points, win by 2.
               </p>
               <p className="text-xs text-green-600">
                 Note: Toss for serve/table side will be conducted when the match starts for the first time.
@@ -650,8 +684,8 @@ export function FixtureCreator({
             disabled={isCreating || !team1Id || !team2Id || !matchDate || !venue || 
               (sport === "cricket" && (!cricketTotalOvers || !cricketMaxOversPerBowler)) ||
               (sport === "volleyball" && !volleyballNumberOfSets) ||
-              (sport === "badminton" && (!badmintonGamesToWin || !badmintonPointsToWin)) ||
-              (sport === "table-tennis" && (!tableTennisSetsToWin || !tableTennisPointsToWin))}
+              (sport === "badminton" && (!badmintonNumberOfMatches || !badmintonSetsPerMatch || !badmintonPointsToWin)) ||
+              (sport === "table-tennis" && (!tableTennisNumberOfMatches || !tableTennisSetsPerMatch || !tableTennisPointsToWin))}
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />

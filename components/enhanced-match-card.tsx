@@ -42,11 +42,47 @@ export function EnhancedMatchCard({ match, index = 0 }: EnhancedMatchCardProps) 
     
     // Handle different sport score structures
     if (match.sport === "cricket") {
-      return team === "home" 
-        ? `${match.score.homeRuns}/${match.score.homeWickets}`
-        : `${match.score.awayRuns}/${match.score.awayWickets}`
+      const innings = match.score?.innings
+      if (!innings || !Array.isArray(innings)) return "-"
+      
+      if (team === "home") {
+        return innings[0] ? `${innings[0].runs}/${innings[0].wickets}` : "-"
+      } else {
+        return innings[1] ? `${innings[1].runs}/${innings[1].wickets}` : "-"
+      }
     } else if (match.sport === "volleyball") {
-      return team === "home" ? match.score.homeSets || 0 : match.score.awaySets || 0
+      const sets = match.score?.sets
+      if (!sets || !Array.isArray(sets)) return 0
+      
+      let wins = 0
+      sets.forEach((set: any) => {
+        if (team === "home" && set.home > set.away) wins++
+        else if (team === "away" && set.away > set.home) wins++
+      })
+      return wins
+    } else if (match.sport === "table-tennis" || match.sport === "badminton") {
+      // Check for new team match structure
+      if (match.score?.matches && Array.isArray(match.score.matches)) {
+        const matchWins = match.score.matchWins || { home: 0, away: 0 }
+        return team === "home" ? matchWins.home : matchWins.away
+      }
+      
+      // Fallback to old structure
+      const items = match.score?.sets || match.score?.games
+      if (!items || !Array.isArray(items)) return 0
+      
+      let wins = 0
+      items.forEach((item: any) => {
+        if (team === "home" && item.home > item.away) wins++
+        else if (team === "away" && item.away > item.home) wins++
+      })
+      return wins
+    } else if (match.sport === "futsal") {
+      return team === "home" ? match.score?.home || 0 : match.score?.away || 0
+    } else if (match.sport === "chess") {
+      const teamScore = match.score?.teamScore
+      if (!teamScore) return 0
+      return team === "home" ? teamScore.home || 0 : teamScore.away || 0
     } else {
       return team === "home" ? match.score.homeScore || 0 : match.score.awayScore || 0
     }
@@ -62,12 +98,19 @@ export function EnhancedMatchCard({ match, index = 0 }: EnhancedMatchCardProps) 
       <Link href={`/matches/${match.id}`}>
         <Card className={`glass angular-card overflow-hidden transition-all duration-300 hover:shadow-2xl ${sportGlow} border-2 ${isLive ? 'energy-border animate-energy-pulse' : 'border-border/50'} group cursor-pointer`}>
           {/* Status Badge */}
-          <div className="absolute top-3 right-3 z-10">
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
             {isLive && (
-              <Badge className="bg-red-500 text-white angular-badge animate-pulse flex items-center gap-1 px-3">
-                <Zap className="h-3 w-3" />
-                LIVE
-              </Badge>
+              <>
+                <Badge className="bg-red-500 text-white angular-badge animate-pulse flex items-center gap-1 px-3">
+                  <Zap className="h-3 w-3" />
+                  LIVE
+                </Badge>
+                {match.score && (
+                  <Badge variant="secondary" className="angular-badge font-bold text-base">
+                    {getScore("home")} - {getScore("away")}
+                  </Badge>
+                )}
+              </>
             )}
             {isCompleted && (
               <Badge variant="secondary" className="angular-badge">

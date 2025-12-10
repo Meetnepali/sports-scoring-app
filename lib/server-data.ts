@@ -1446,18 +1446,38 @@ export async function deleteMatch(matchId: string): Promise<void> {
     
     // Delete related records first (cascading will handle most, but being explicit)
     // Delete user_match_participation records
-    await query(`DELETE FROM user_match_participation WHERE match_id = $1`, [matchId])
+    await query(`DELETE FROM user_match_participation WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting user_match_participation:', err.message)
+    })
     
-    // Delete sport-specific configs if they exist
-    await query(`DELETE FROM cricket_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    // Delete cricket-specific data (ball-by-ball, innings, bowling stats, summary)
+    await query(`DELETE FROM cricket_ball_by_ball WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting cricket_ball_by_ball:', err.message)
+    })
+    await query(`DELETE FROM cricket_player_innings WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting cricket_player_innings:', err.message)
+    })
+    await query(`DELETE FROM cricket_bowling_stats WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting cricket_bowling_stats:', err.message)
+    })
+    await query(`DELETE FROM cricket_match_summary WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting cricket_match_summary:', err.message)
+    })
+    await query(`DELETE FROM cricket_match_config WHERE match_id = $1`, [matchId]).catch((err) => {
+      console.log('Error deleting cricket_match_config:', err.message)
+    })
+    
+    // Delete other sport-specific configs (catch errors for tables that may not exist)
     await query(`DELETE FROM volleyball_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
     await query(`DELETE FROM chess_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
+    // Chess games table may not exist, so catch silently
+    await query(`DELETE FROM chess_games WHERE match_id = $1`, [matchId]).catch(() => {})
     await query(`DELETE FROM futsal_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
     await query(`DELETE FROM table_tennis_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
     await query(`DELETE FROM badminton_match_config WHERE match_id = $1`, [matchId]).catch(() => {})
     
     // Delete the match itself
-    // This will cascade to user_match_participation and set match_id to NULL in group_matches
+    // This will cascade to any remaining dependent records (including group_matches via foreign key)
     await query(`DELETE FROM matches WHERE id = $1`, [matchId])
   } catch (error) {
     console.error("Error deleting match:", error)

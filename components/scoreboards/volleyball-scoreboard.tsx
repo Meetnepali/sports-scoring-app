@@ -243,6 +243,9 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
         }
       }
 
+      // Calculate the new score
+      const newScore = currentScore + amount
+
       // Determine serving team - when serve changes, just shift from one team to the other
       let newServingTeam = prevScore.servingTeam
       

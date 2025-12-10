@@ -28,12 +28,24 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   const defaultPointsToWin = 11
   const defaultTotalSets = 3 // Best of 3
   
-  const initialScore = match.score ? {
+  // Check if we have new team match structure or old structure
+  const hasTeamMatchStructure = match.score?.matches && Array.isArray(match.score.matches)
+  
+  const initialScore = match.score ? (hasTeamMatchStructure ? {
+    // New team match structure
+    matches: match.score.matches,
+    currentMatch: Number(match.score.currentMatch) || 0,
+    matchWins: match.score.matchWins || { home: 0, away: 0 },
+    tieWinner: match.score.tieWinner || null,
+    servingTeam: match.score.servingTeam || "home",
+    pointsToWin: Number(match.score.pointsToWin) || defaultPointsToWin,
+  } : {
+    // Old sets structure
     sets: Array.isArray(match.score.sets) && match.score.sets.length > 0 
       ? match.score.sets.map((set: any) => ({
           home: Number(set?.home) || 0,
           away: Number(set?.away) || 0,
-          type: set?.type || "singles" // singles or doubles
+          type: set?.type || "singles"
         })) 
       : Array.from({ length: defaultTotalSets }, () => ({ home: 0, away: 0, type: "singles" })),
     currentSet: Number(match.score.currentSet) || 0,
@@ -41,6 +53,13 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
     pointsToWin: Number(match.score.pointsToWin) || defaultPointsToWin,
     setsToWin: Number(match.score.setsToWin) || defaultSetsToWin,
     isDoubles: match.score.isDoubles || false,
+  }) : (hasTeamMatchStructure ? {
+    matches: [],
+    currentMatch: 0,
+    matchWins: { home: 0, away: 0 },
+    tieWinner: null,
+    servingTeam: "home",
+    pointsToWin: defaultPointsToWin,
   } : {
     sets: Array.from({ length: defaultTotalSets }, () => ({ home: 0, away: 0, type: "singles" })),
     currentSet: 0,
@@ -48,15 +67,19 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
     pointsToWin: defaultPointsToWin,
     setsToWin: defaultSetsToWin,
     isDoubles: false,
-  }
+  })
 
   const [score, setScore] = useState(initialScore)
   const [currentSet, setCurrentSet] = useState(() => {
+    if (hasTeamMatchStructure) {
+      return Number(initialScore.currentMatch) || 0
+    }
     const setIndex = Number(initialScore.currentSet)
     return !isNaN(setIndex) && setIndex >= 0 ? setIndex : 0
   })
-  const [servingPlayer, setServingPlayer] = useState(score.servingPlayer || "home")
-  const [isDoubles, setIsDoubles] = useState(score.isDoubles || false)
+  const [servingPlayer, setServingPlayer] = useState(hasTeamMatchStructure ? initialScore.servingTeam : (initialScore.servingPlayer || "home"))
+  const [isDoubles, setIsDoubles] = useState(hasTeamMatchStructure ? false : (initialScore.isDoubles || false))
+  const [currentSetInMatch, setCurrentSetInMatch] = useState(0) // For team match structure
   const [showAnimation, setShowAnimation] = useState<{ team: "home" | "away"; value: number } | null>(null)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
   const [winnerInfo, setWinnerInfo] = useState<{ team: "home" | "away"; name: string; setsWon: number; setsLost: number } | null>(null)

@@ -9,11 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Clock, Check } from "lucide-react"
-import { format } from "date-fns"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { CalendarIcon, Clock } from "lucide-react"
 import { getAllTeams, createMatch } from "@/lib/client-api"
 import Image from "next/image"
 import { PageTransition } from "@/components/page-transition"
@@ -55,10 +51,7 @@ export default function CreateMatchPage() {
   const [homeTeam, setHomeTeam] = useState(team1Id)
   const [awayTeam, setAwayTeam] = useState(team2Id)
   const [venue, setVenue] = useState("")
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [hour, setHour] = useState("14")
-  const [minute, setMinute] = useState("00")
-  const [period, setPeriod] = useState<"AM" | "PM">("PM")
+  const [matchDateTime, setMatchDateTime] = useState("")
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -70,14 +63,16 @@ export default function CreateMatchPage() {
   const [volleyballNumberOfSets, setVolleyballNumberOfSets] = useState<"3" | "5">("5")
 
   // Table Tennis-specific configuration
-  const [tableTennisSetsToWin, setTableTennisSetsToWin] = useState<"2" | "3" | "4">("2")
+  const [tableTennisNumberOfMatches, setTableTennisNumberOfMatches] = useState<"3" | "5" | "7">("3")
+  const [tableTennisSetsPerMatch, setTableTennisSetsPerMatch] = useState<"2" | "3" | "4">("2")
   const [tableTennisPointsToWin, setTableTennisPointsToWin] = useState<"11" | "21">("11")
-  const [tableTennisSetTypes, setTableTennisSetTypes] = useState<Array<"singles" | "doubles">>([])
+  const [tableTennisMatchTypes, setTableTennisMatchTypes] = useState<Array<"singles" | "doubles">>([])
 
   // Badminton-specific configuration
-  const [badmintonGamesToWin, setBadmintonGamesToWin] = useState<"2" | "3">("2")
+  const [badmintonNumberOfMatches, setBadmintonNumberOfMatches] = useState<"3" | "5" | "7">("3")
+  const [badmintonSetsPerMatch, setBadmintonSetsPerMatch] = useState<"2" | "3">("2")
   const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
-  const [badmintonGameTypes, setBadmintonGameTypes] = useState<Array<"singles" | "doubles">>([])
+  const [badmintonMatchTypes, setBadmintonMatchTypes] = useState<Array<"singles" | "doubles">>([])
 
   // Chess-specific configuration
   const [chessNumberOfGames, setChessNumberOfGames] = useState("1")
@@ -119,25 +114,25 @@ export default function CreateMatchPage() {
     }
   }, [selectedSport, allTeams])
 
-  // Calculate and initialize set types when Table Tennis format changes
+  // Calculate and initialize match types when Table Tennis number of matches changes
   useEffect(() => {
     if (selectedSport === "table-tennis") {
-      const totalSets = tableTennisSetsToWin === "2" ? 3 : tableTennisSetsToWin === "3" ? 5 : 7
-      if (tableTennisSetTypes.length !== totalSets) {
-        setTableTennisSetTypes(Array(totalSets).fill("singles" as "singles" | "doubles"))
+      const numMatches = parseInt(tableTennisNumberOfMatches)
+      if (tableTennisMatchTypes.length !== numMatches) {
+        setTableTennisMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
       }
     }
-  }, [selectedSport, tableTennisSetsToWin])
+  }, [selectedSport, tableTennisNumberOfMatches])
 
-  // Calculate and initialize game types when Badminton format changes
+  // Calculate and initialize match types when Badminton number of matches changes
   useEffect(() => {
     if (selectedSport === "badminton") {
-      const totalGames = badmintonGamesToWin === "2" ? 3 : 5
-      if (badmintonGameTypes.length !== totalGames) {
-        setBadmintonGameTypes(Array(totalGames).fill("singles" as "singles" | "doubles"))
+      const numMatches = parseInt(badmintonNumberOfMatches)
+      if (badmintonMatchTypes.length !== numMatches) {
+        setBadmintonMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
       }
     }
-  }, [selectedSport, badmintonGamesToWin])
+  }, [selectedSport, badmintonNumberOfMatches])
 
   const sportNames: Record<string, string> = {
     cricket: "Cricket",
@@ -151,7 +146,7 @@ export default function CreateMatchPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedSport || !homeTeam || !awayTeam || !venue || !date) {
+    if (!selectedSport || !homeTeam || !awayTeam || !venue || !matchDateTime) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -205,23 +200,14 @@ export default function CreateMatchPage() {
     try {
       setSubmitting(true)
       
-      // Convert time to 24-hour format
-      let hour24 = Number.parseInt(hour)
-      if (period === "PM" && hour24 !== 12) {
-        hour24 += 12
-      } else if (period === "AM" && hour24 === 12) {
-        hour24 = 0
-      }
-      
-      // Create ISO date string with time
-      const matchDateTime = new Date(date)
-      matchDateTime.setHours(hour24, Number.parseInt(minute), 0, 0)
+      // Convert datetime-local string to ISO string
+      const matchDate = new Date(matchDateTime)
       
       const matchData = {
         sport: selectedSport, // Use selected sport
         homeTeamId: homeTeam,
         awayTeamId: awayTeam,
-        date: matchDateTime.toISOString(),
+        date: matchDate.toISOString(),
         venue: venue,
         status: "scheduled"
       }
@@ -271,9 +257,10 @@ export default function CreateMatchPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              gamesToWin: parseInt(badmintonGamesToWin),
-              pointsToWinPerGame: parseInt(badmintonPointsToWin),
-              gameTypes: badmintonGameTypes, // Pre-configured game types
+              numberOfMatches: parseInt(badmintonNumberOfMatches),
+              setsPerMatch: parseInt(badmintonSetsPerMatch),
+              pointsToWinPerSet: parseInt(badmintonPointsToWin),
+              matchTypes: badmintonMatchTypes, // Pre-configured match types
               configCompleted: false, // Will be completed when toss is done
             }),
           })
@@ -290,9 +277,10 @@ export default function CreateMatchPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              setsToWin: parseInt(tableTennisSetsToWin),
+              numberOfMatches: parseInt(tableTennisNumberOfMatches),
+              setsPerMatch: parseInt(tableTennisSetsPerMatch),
               pointsToWinPerSet: parseInt(tableTennisPointsToWin),
-              setTypes: tableTennisSetTypes, // Pre-configured set types
+              matchTypes: tableTennisMatchTypes, // Pre-configured match types
               configCompleted: false, // Will be completed when toss is done
             }),
           })
@@ -473,21 +461,34 @@ export default function CreateMatchPage() {
                   <h3 className="font-semibold text-yellow-900 flex items-center gap-2">
                     🏸 Badminton Match Configuration
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="gamesToWin" className="text-base font-semibold">Games Format *</Label>
-                      <Select value={badmintonGamesToWin} onValueChange={(val) => setBadmintonGamesToWin(val as "2" | "3")} required>
-                        <SelectTrigger id="gamesToWin" className="h-12 bg-white">
-                          <SelectValue placeholder="Select format" />
+                      <Label htmlFor="numberOfMatches" className="text-base font-semibold">Number of Matches *</Label>
+                      <Select value={badmintonNumberOfMatches} onValueChange={(val) => setBadmintonNumberOfMatches(val as "3" | "5" | "7")} required>
+                        <SelectTrigger id="numberOfMatches" className="h-12 bg-white">
+                          <SelectValue placeholder="Select number" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="2">Best of 3 Games (First to 2 wins)</SelectItem>
-                          <SelectItem value="3">Best of 5 Games (First to 3 wins)</SelectItem>
+                          <SelectItem value="3">3 Matches</SelectItem>
+                          <SelectItem value="5">5 Matches</SelectItem>
+                          <SelectItem value="7">7 Matches</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pointsToWin" className="text-base font-semibold">Points to Win per Game *</Label>
+                      <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
+                      <Select value={badmintonSetsPerMatch} onValueChange={(val) => setBadmintonSetsPerMatch(val as "2" | "3")} required>
+                        <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
+                          <SelectValue placeholder="Select format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2">Best of 3 Sets (First to 2 wins)</SelectItem>
+                          <SelectItem value="3">Best of 5 Sets (First to 3 wins)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pointsToWin" className="text-base font-semibold">Points per Set *</Label>
                       <Select value={badmintonPointsToWin} onValueChange={(val) => setBadmintonPointsToWin(val as "11" | "15" | "21")} required>
                         <SelectTrigger id="pointsToWin" className="h-12 bg-white">
                           <SelectValue placeholder="Select points" />
@@ -501,26 +502,26 @@ export default function CreateMatchPage() {
                     </div>
                   </div>
                   <p className="text-xs text-yellow-700">
-                    Standard: First to {badmintonPointsToWin} points, win by 2, maximum {badmintonPointsToWin === "11" ? "15" : badmintonPointsToWin === "15" ? "19" : "30"} points
+                    All {badmintonNumberOfMatches} matches will be played. Each match has {badmintonSetsPerMatch === "2" ? "3" : "5"} sets (first to {badmintonSetsPerMatch} wins). Each set is first to {badmintonPointsToWin} points, win by 2, maximum {badmintonPointsToWin === "11" ? "15" : badmintonPointsToWin === "15" ? "19" : "30"} points.
                   </p>
                   <p className="text-xs text-yellow-600">
                     Note: Toss for serve/court side will be conducted when the match starts for the first time.
                   </p>
                   
-                  {/* Game Type Selection for each game */}
-                  {badmintonGameTypes.length > 0 && (
+                  {/* Match Type Selection for each match */}
+                  {badmintonMatchTypes.length > 0 && (
                     <div className="space-y-3 mt-4">
-                      <Label className="text-base font-semibold">Game Types Configuration *</Label>
+                      <Label className="text-base font-semibold">Match Types Configuration *</Label>
                       <div className="grid grid-cols-1 gap-3">
-                        {badmintonGameTypes.map((gameType, index) => (
+                        {badmintonMatchTypes.map((matchType, index) => (
                           <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                            <span className="font-medium min-w-[70px]">Game {index + 1}:</span>
+                            <span className="font-medium min-w-[80px]">Match {index + 1}:</span>
                             <Select
-                              value={gameType}
+                              value={matchType}
                               onValueChange={(val) => {
-                                const newTypes = [...badmintonGameTypes]
+                                const newTypes = [...badmintonMatchTypes]
                                 newTypes[index] = val as "singles" | "doubles"
-                                setBadmintonGameTypes(newTypes)
+                                setBadmintonMatchTypes(newTypes)
                               }}
                             >
                               <SelectTrigger className="h-10 flex-1">
@@ -535,7 +536,7 @@ export default function CreateMatchPage() {
                         ))}
                       </div>
                       <p className="text-xs text-yellow-700">
-                        Configure whether each game will be played as singles or doubles
+                        Configure whether each match will be played as singles or doubles. All sets within a match will use the same type.
                       </p>
                     </div>
                   )}
@@ -548,11 +549,24 @@ export default function CreateMatchPage() {
                   <h3 className="font-semibold text-green-900 flex items-center gap-2">
                     🏓 Table Tennis Match Configuration
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="setsToWin" className="text-base font-semibold">Sets Format *</Label>
-                      <Select value={tableTennisSetsToWin} onValueChange={(val) => setTableTennisSetsToWin(val as "2" | "3" | "4")} required>
-                        <SelectTrigger id="setsToWin" className="h-12 bg-white">
+                      <Label htmlFor="numberOfMatches" className="text-base font-semibold">Number of Matches *</Label>
+                      <Select value={tableTennisNumberOfMatches} onValueChange={(val) => setTableTennisNumberOfMatches(val as "3" | "5" | "7")} required>
+                        <SelectTrigger id="numberOfMatches" className="h-12 bg-white">
+                          <SelectValue placeholder="Select number" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3">3 Matches</SelectItem>
+                          <SelectItem value="5">5 Matches</SelectItem>
+                          <SelectItem value="7">7 Matches</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
+                      <Select value={tableTennisSetsPerMatch} onValueChange={(val) => setTableTennisSetsPerMatch(val as "2" | "3" | "4")} required>
+                        <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
                           <SelectValue placeholder="Select format" />
                         </SelectTrigger>
                         <SelectContent>
@@ -563,7 +577,7 @@ export default function CreateMatchPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pointsToWin" className="text-base font-semibold">Points to Win per Set *</Label>
+                      <Label htmlFor="pointsToWin" className="text-base font-semibold">Points per Set *</Label>
                       <Select value={tableTennisPointsToWin} onValueChange={(val) => setTableTennisPointsToWin(val as "11" | "21")} required>
                         <SelectTrigger id="pointsToWin" className="h-12 bg-white">
                           <SelectValue placeholder="Select points" />
@@ -576,26 +590,26 @@ export default function CreateMatchPage() {
                     </div>
                   </div>
                   <p className="text-xs text-green-700">
-                    Standard: First to {tableTennisPointsToWin} points per set, win by 2 points
+                    All {tableTennisNumberOfMatches} matches will be played. Each match has {tableTennisSetsPerMatch === "2" ? "3" : tableTennisSetsPerMatch === "3" ? "5" : "7"} sets (first to {tableTennisSetsPerMatch} wins). Each set is first to {tableTennisPointsToWin} points, win by 2.
                   </p>
                   <p className="text-xs text-green-600">
                     Note: Toss for serve/table side will be conducted when the match starts for the first time.
                   </p>
                   
-                  {/* Set Type Selection for each set */}
-                  {tableTennisSetTypes.length > 0 && (
+                  {/* Match Type Selection for each match */}
+                  {tableTennisMatchTypes.length > 0 && (
                     <div className="space-y-3 mt-4">
-                      <Label className="text-base font-semibold">Set Types Configuration *</Label>
+                      <Label className="text-base font-semibold">Match Types Configuration *</Label>
                       <div className="grid grid-cols-1 gap-3">
-                        {tableTennisSetTypes.map((setType, index) => (
+                        {tableTennisMatchTypes.map((matchType, index) => (
                           <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                            <span className="font-medium min-w-[60px]">Set {index + 1}:</span>
+                            <span className="font-medium min-w-[80px]">Match {index + 1}:</span>
                             <Select
-                              value={setType}
+                              value={matchType}
                               onValueChange={(val) => {
-                                const newTypes = [...tableTennisSetTypes]
+                                const newTypes = [...tableTennisMatchTypes]
                                 newTypes[index] = val as "singles" | "doubles"
-                                setTableTennisSetTypes(newTypes)
+                                setTableTennisMatchTypes(newTypes)
                               }}
                             >
                               <SelectTrigger className="h-10 flex-1">
@@ -610,7 +624,7 @@ export default function CreateMatchPage() {
                         ))}
                       </div>
                       <p className="text-xs text-green-700">
-                        Configure whether each set will be played as singles or doubles
+                        Configure whether each match will be played as singles or doubles. All sets within a match will use the same type.
                       </p>
                     </div>
                   )}
@@ -791,127 +805,22 @@ export default function CreateMatchPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-base font-semibold flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4" />
-                    Match Date *
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal h-14 hover:bg-accent hover:border-primary transition-all",
-                          !date && "text-muted-foreground",
-                        )}
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <CalendarIcon className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex flex-col items-start flex-1">
-                            {date ? (
-                              <>
-                                <span className="text-xs text-muted-foreground font-normal">Selected Date</span>
-                                <span className="font-semibold text-base">{format(date, "MMMM d, yyyy")}</span>
-                              </>
-                            ) : (
-                              <span className="text-base">Pick a date</span>
-                            )}
-                          </div>
-                        </div>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={setDate}
-                        initialFocus
-                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                        className="rounded-lg border shadow-lg"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {date && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-md">
-                      <Check className="h-4 w-4 text-green-600" />
-                      {format(date, "EEEE, MMMM d, yyyy")}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-base font-semibold flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Match Time *
-                  </Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="hour" className="text-xs text-muted-foreground">
-                        Hour
-                      </Label>
-                      <Select value={hour} onValueChange={setHour}>
-                        <SelectTrigger id="hour" className="h-14">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => {
-                            const h = i + 1
-                            return (
-                              <SelectItem key={h} value={h.toString().padStart(2, "0")}>
-                                {h.toString().padStart(2, "0")}
-                              </SelectItem>
-                            )
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="minute" className="text-xs text-muted-foreground">
-                        Minute
-                      </Label>
-                      <Select value={minute} onValueChange={setMinute}>
-                        <SelectTrigger id="minute" className="h-14">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["00", "15", "30", "45"].map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="period" className="text-xs text-muted-foreground">
-                        Period
-                      </Label>
-                      <Select value={period} onValueChange={(val) => setPeriod(val as "AM" | "PM")}>
-                        <SelectTrigger id="period" className="h-14">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Selected Time</p>
-                      <p className="text-lg font-bold text-primary">
-                        {hour}:{minute} {period}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Match Date & Time *
+                </Label>
+                <Input
+                  type="datetime-local"
+                  value={matchDateTime}
+                  onChange={(e) => setMatchDateTime(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  className="h-14 text-base"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Select the date and time when the match starts
+                </p>
               </div>
 
               {tournamentName && (

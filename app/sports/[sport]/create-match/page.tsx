@@ -11,10 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import type { Team } from "@/lib/static-data"
 
@@ -27,8 +23,7 @@ export default function CreateMatchPage({ params }: { params: Promise<{ sport: s
   const [homeTeam, setHomeTeam] = useState("")
   const [awayTeam, setAwayTeam] = useState("")
   const [venue, setVenue] = useState("")
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [time, setTime] = useState("14:00")
+  const [matchDateTime, setMatchDateTime] = useState("")
 
   useEffect(() => {
     async function fetchTeams() {
@@ -123,36 +118,26 @@ export default function CreateMatchPage({ params }: { params: Promise<{ sport: s
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="time">Time</Label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="matchDateTime" className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Match Date & Time
+              </Label>
+              <Input
+                id="matchDateTime"
+                type="datetime-local"
+                value={matchDateTime}
+                onChange={(e) => setMatchDateTime(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                required
+              />
             </div>
 
             <div className="flex justify-end space-x-4">
               <Button type="button" variant="outline" onClick={() => router.back()}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={!homeTeam || !awayTeam || !venue || !date}>
+              <Button type="submit" disabled={!homeTeam || !awayTeam || !venue || !matchDateTime}>
                 Create Match
               </Button>
             </div>

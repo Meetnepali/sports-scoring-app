@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef } from "react"
 import { use } from "react"
-import { getMatchById } from "@/lib/client-api"
-import { notFound } from "next/navigation"
+import { getMatchById, deleteMatch } from "@/lib/client-api"
+import { notFound, useRouter } from "next/navigation"
 import CricketScoreboard from "@/components/scoreboards/cricket-scoreboard-enhanced"
 import VolleyballScoreboard from "@/components/scoreboards/volleyball-scoreboard"
 import ChessScoreboard from "@/components/scoreboards/chess-scoreboard"
@@ -11,21 +11,39 @@ import FutsalScoreboard from "@/components/scoreboards/futsal-scoreboard"
 import TableTennisScoreboard from "@/components/scoreboards/table-tennis-scoreboard"
 import BadmintonScoreboard from "@/components/scoreboards/badminton-scoreboard"
 import { Badge } from "@/components/ui/badge"
-import { CalendarDays, MapPin } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { CalendarDays, MapPin, Trash2 } from "lucide-react"
 import { PageTransition } from "@/components/page-transition"
 import { motion } from "framer-motion"
 import type { Match } from "@/lib/static-data"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { MatchWinnerDialog } from "@/components/match-winner-dialog"
 import { ScoreboardWrapper } from "@/components/scoreboard-wrapper"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
+  const { isAdmin } = useAuth()
+  const { toast } = useToast()
   const [match, setMatch] = useState<Match | null>(null)
   const [loading, setLoading] = useState(true)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
   const [hasSeenWinnerDialog, setHasSeenWinnerDialog] = useState(false)
   const [currentVersion, setCurrentVersion] = useState<number>(0)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const hasSeenWinnerDialogRef = useRef(false)
 
   const fetchMatch = async () => {
@@ -125,6 +143,31 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
     sessionStorage.setItem(`match_winner_seen_${id}`, "true")
   }
 
+  // Handle match deletion
+  const handleDeleteMatch = async () => {
+    try {
+      setDeleting(true)
+      await deleteMatch(id)
+      
+      toast({
+        title: "Match Deleted",
+        description: "The match has been permanently deleted.",
+      })
+      
+      // Redirect to matches page
+      router.push("/matches")
+    } catch (error) {
+      console.error('Error deleting match:', error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete match"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 flex justify-center items-center min-h-[50vh]">
@@ -207,16 +250,31 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           transition={{ duration: 0.5 }}
           className="bg-card text-card-foreground rounded-lg shadow-md p-6 mb-8 animate-fade-in"
         >
-          <div className="flex items-center mb-4">
-            <span className="text-3xl mr-3">{getSportIcon()}</span>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                {match.homeTeam.name} vs {match.awayTeam.name}
-                <Badge variant={getStatusBadgeVariant()} className="text-sm ml-2">
-                  {match.status === "live" ? "LIVE" : match.status.toUpperCase()}
-                </Badge>
-              </h1>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <span className="text-3xl mr-3">{getSportIcon()}</span>
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  {match.homeTeam.name} vs {match.awayTeam.name}
+                  <Badge variant={getStatusBadgeVariant()} className="text-sm ml-2">
+                    {match.status === "live" ? "LIVE" : match.status.toUpperCase()}
+                  </Badge>
+                </h1>
+              </div>
             </div>
+            
+            {isAdmin && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleting || match.status === "live" || match.status === "started"}
+                title={match.status === "live" || match.status === "started" ? "Cannot delete live or started matches" : "Delete match"}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Match
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 text-sm text-muted-foreground mb-6">
@@ -251,6 +309,30 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           onClose={handleCloseWinnerDialog}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this match between <strong>{match.homeTeam.name}</strong> and <strong>{match.awayTeam.name}</strong>?
+              <br /><br />
+              This action cannot be undone. All match data including scores, statistics, and related records will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMatch}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? "Deleting..." : "Delete Match"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageTransition>
   )
 }

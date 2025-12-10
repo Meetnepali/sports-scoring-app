@@ -157,6 +157,24 @@ export async function updateMatchStatus(matchId: string, status: 'scheduled' | '
   return await response.json()
 }
 
+export async function deleteMatch(matchId: string): Promise<void> {
+  const response = await fetch(`/api/matches/${matchId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    const errorMessage = errorData.error || 'Failed to delete match'
+    console.error('Match deletion failed:', errorData)
+    throw new Error(errorMessage)
+  }
+
+  return await response.json()
+}
+
 export async function updateMatchScore(matchId: string, score: any): Promise<Match> {
   const response = await fetch(`/api/matches/${matchId}`, {
     method: 'PUT',

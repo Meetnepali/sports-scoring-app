@@ -8,18 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageTransition } from "@/components/page-transition"
 import { getTeamById } from "@/lib/client-api"
-import { CalendarIcon, Clock, MapPin, Trophy, Users } from "lucide-react"
-import { format } from "date-fns"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { CalendarIcon, MapPin, Trophy, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 
 export default function CreateTournamentMatchPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const [date, setDate] = useState<Date>()
-  const [time, setTime] = useState("14:00")
+  const [matchDateTime, setMatchDateTime] = useState("")
   const [venue, setVenue] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [team1, setTeam1] = useState<any>(null)
@@ -50,17 +45,15 @@ export default function CreateTournamentMatchPage({ params }: { params: { id: st
   }, [])
 
   const createMatch = () => {
-    if (!team1 || !team2 || !date || !venue) {
+    if (!team1 || !team2 || !matchDateTime || !venue) {
       alert("Please fill in all required fields")
       return
     }
 
     setIsCreating(true)
 
-    // Combine date and time
-    const matchDateTime = new Date(date)
-    const [hours, minutes] = time.split(":").map(Number)
-    matchDateTime.setHours(hours, minutes)
+    // Convert datetime-local to Date
+    const matchDate = new Date(matchDateTime)
 
     // In a real app, this would save the match to a database
     const newMatch = {
@@ -68,7 +61,7 @@ export default function CreateTournamentMatchPage({ params }: { params: { id: st
       sport: team1.sport,
       homeTeam: team1,
       awayTeam: team2,
-      date: matchDateTime.toISOString(),
+      date: matchDate.toISOString(),
       venue,
       status: "scheduled",
       tournamentId: params.id,
@@ -153,32 +146,19 @@ export default function CreateTournamentMatchPage({ params }: { params: { id: st
               </div>
 
               {/* Date and Time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="time">Time</Label>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="matchDateTime" className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Match Date & Time
+                </Label>
+                <Input
+                  id="matchDateTime"
+                  type="datetime-local"
+                  value={matchDateTime}
+                  onChange={(e) => setMatchDateTime(e.target.value)}
+                  min={new Date().toISOString().slice(0, 16)}
+                  required
+                />
               </div>
 
               {/* Venue */}

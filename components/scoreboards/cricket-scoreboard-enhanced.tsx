@@ -653,7 +653,11 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     }
 
     // Record to database - use current over state
+    // For legal balls (byes, legbyes), totalBalls has already been incremented
+    // For illegal balls (wides, noballs), totalBalls has NOT been incremented
+    // We need to calculate ball number BEFORE the increment for legal balls
     const totalBalls = oversToTotalBalls(innings.overs)
+    const totalBallsBeforeIncrement = isLegalBall ? totalBalls - 1 : totalBalls
     
     // Map frontend extra types to database format
     const extraTypeMap: Record<string, string> = {
@@ -665,8 +669,8 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
     
     await recordBallToDb({
       inningsNumber: currentInnings + 1,
-      overNumber: Math.floor(totalBalls / 6),
-      ballNumber: (totalBalls % 6) + (isLegalBall ? 1 : 0),
+      overNumber: Math.floor(totalBallsBeforeIncrement / 6),
+      ballNumber: (totalBallsBeforeIncrement % 6) + 1,
       bowlerId: currentBowler,
       batsmanStrikerId: striker,
       batsmanNonStrikerId: nonStriker,

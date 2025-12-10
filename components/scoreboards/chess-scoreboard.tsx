@@ -208,6 +208,63 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
     }
   }
 
+  const handleFinishMatch = async () => {
+    try {
+      // Determine winner based on team scores
+      let winnerId = null
+      let winnerName = "Draw"
+      
+      if (teamScore.home > teamScore.away) {
+        winnerId = match.homeTeam.id
+        winnerName = match.homeTeam.name
+      } else if (teamScore.away > teamScore.home) {
+        winnerId = match.awayTeam.id
+        winnerName = match.awayTeam.name
+      }
+
+      const finalScore = {
+        games,
+        teamScore,
+      }
+
+      // Complete the match via API
+      await fetch(`/api/matches/${match.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          score: finalScore,
+          winnerId: winnerId,
+        }),
+      })
+
+      // Update match status
+      await fetch(`/api/matches/${match.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      })
+
+      toast({
+        title: "♟️ Match Complete!",
+        description: winnerId 
+          ? `${winnerName} wins ${teamScore.home}-${teamScore.away}!`
+          : `Match ended in a ${teamScore.home}-${teamScore.away} draw!`,
+      })
+
+      // Refresh page after a short delay to show completion
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    } catch (error) {
+      console.error("Error finishing match:", error)
+      toast({
+        title: "Error",
+        description: "Failed to finish match",
+        variant: "destructive",
+      })
+    }
+  }
+
 
   const getPlayerName = (playerId: string) => {
     const allPlayers = [...match.homeTeam.players, ...match.awayTeam.players]
@@ -375,6 +432,19 @@ export default function ChessScoreboard({ match }: ChessScoreboardProps) {
               {games.length === 0 && (
                 <div className="text-center py-6">
                   <p className="text-gray-500">No games have been set up yet.</p>
+                </div>
+              )}
+
+              {/* Finish Game Button */}
+              {games.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <Button
+                    onClick={handleFinishMatch}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3"
+                    size="lg"
+                  >
+                    Finish Match
+                  </Button>
                 </div>
               )}
             </div>

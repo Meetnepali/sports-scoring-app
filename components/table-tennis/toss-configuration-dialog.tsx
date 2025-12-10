@@ -1,12 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import type { Team } from "@/lib/static-data"
+import { Card } from "@/components/ui/card"
+
+interface MatchAssignment {
+  matchNumber: number
+  type: "singles" | "doubles"
+  homePlayerIds: string[]
+  awayPlayerIds: string[]
+}
 
 interface TossConfigurationDialogProps {
   open: boolean
@@ -18,6 +26,7 @@ interface TossConfigurationDialogProps {
     tossDecision: "serve" | "table_side"
     selectedTableSide?: string
     servingTeam: string
+    matches: MatchAssignment[]
   }) => void
   onCancel?: () => void
 }
@@ -34,10 +43,68 @@ export function TossConfigurationDialog({
   const [tossDecision, setTossDecision] = useState<"serve" | "table_side" | "">("")
   const [tableSideChoice, setTableSideChoice] = useState<"home" | "away" | "">("")
   const [oppositeTeamSideChoice, setOppositeTeamSideChoice] = useState<"home" | "away" | "">("")
+  const [step, setStep] = useState<"toss" | "matches">("toss")
+  const [matches, setMatches] = useState<MatchAssignment[]>([])
+  const [matchTypes, setMatchTypes] = useState<Array<"singles" | "doubles">>([])
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
-  const handleSave = async () => {
+  // Fetch config and initialize matches based on numberOfMatches and matchTypes
+  useEffect(() => {
+    async function fetchConfig() {
+      if (!open || !matchId) return
+      
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/matches/${matchId}/table-tennis/config`)
+        const data = await response.json()
+        
+        if (data.config && data.config.numberOfMatches) {
+          const numMatches = data.config.numberOfMatches
+          const types = data.config.matchTypes || Array(numMatches).fill("singles")
+          setMatchTypes(types)
+          
+          // Initialize matches array with configured types
+          const initialMatches: MatchAssignment[] = []
+          for (let i = 0; i < numMatches; i++) {
+            initialMatches.push({
+              matchNumber: i + 1,
+              type: types[i] || "singles",
+              homePlayerIds: [],
+              awayPlayerIds: []
+            })
+          }
+          setMatches(initialMatches)
+        } else {
+          // Fallback to 3 matches if config not found
+          const defaultMatches = [
+            { matchNumber: 1, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+            { matchNumber: 2, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+            { matchNumber: 3, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+          ]
+          setMatches(defaultMatches)
+          setMatchTypes(["singles", "singles", "singles"])
+        }
+      } catch (error) {
+        console.error("Error fetching config:", error)
+        // Fallback to 3 matches
+        const defaultMatches = [
+          { matchNumber: 1, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+          { matchNumber: 2, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+          { matchNumber: 3, type: "singles" as const, homePlayerIds: [], awayPlayerIds: [] },
+        ]
+        setMatches(defaultMatches)
+        setMatchTypes(["singles", "singles", "singles"])
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchConfig()
+  }, [open, matchId])
+
+  const handleNextToMatches = () => {
     if (!tossWinner || !tossDecision) {
       toast({
         title: "Incomplete Information",
@@ -67,6 +134,48 @@ export function TossConfigurationDialog({
       return
     }
 
+    setStep("matches")
+  }
+
+  const updateMatchType = (matchIndex: number, type: "singles" | "doubles") => {
+    const newMatches = [...matches]
+    newMatches[matchIndex].type = type
+    // Reset player selections when changing type
+    newMatches[matchIndex].homePlayerIds = []
+    newMatches[matchIndex].awayPlayerIds = []
+    setMatches(newMatches)
+  }
+
+  const updateMatchPlayers = (matchIndex: number, team: "home" | "away", playerIds: string[]) => {
+    const newMatches = [...matches]
+    if (team === "home") {
+      newMatches[matchIndex].homePlayerIds = playerIds
+    } else {
+      newMatches[matchIndex].awayPlayerIds = playerIds
+    }
+    setMatches(newMatches)
+  }
+
+  const validateMatches = () => {
+    for (const match of matches) {
+      const requiredPlayers = match.type === "singles" ? 1 : 2
+      if (match.homePlayerIds.length !== requiredPlayers || match.awayPlayerIds.length !== requiredPlayers) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const handleSave = async () => {
+    if (!validateMatches()) {
+      toast({
+        title: "Incomplete Player Assignments",
+        description: "Please assign players to all matches",
+        variant: "destructive",
+      })
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -83,7 +192,7 @@ export function TossConfigurationDialog({
         selectedTableSide = oppositeTeamSideChoice as "home" | "away"
       }
 
-      // Save toss configuration
+      // Save toss configuration with match assignments
       const response = await fetch(`/api/matches/${matchId}/table-tennis/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,6 +202,7 @@ export function TossConfigurationDialog({
           selectedTableSide,
           servingTeam,
           configCompleted: true,
+          matches,
         }),
       })
 
@@ -101,14 +211,9 @@ export function TossConfigurationDialog({
         throw new Error("Failed to save toss configuration")
       }
 
-      const tossWinnerName = tossWinner === homeTeam.id ? homeTeam.name : awayTeam.name
-      const servingTeamName = servingTeam === "home" ? homeTeam.name : awayTeam.name
-
       toast({
-        title: "Toss Recorded!",
-        description: `${tossWinnerName} won the toss and chose to ${
-          tossDecision === "table_side" ? `take ${tableSideChoice} table side` : "serve first"
-        }. ${servingTeamName} will serve first.`,
+        title: "Configuration Complete!",
+        description: `Match setup completed. Ready to begin.`,
       })
 
       onComplete({
@@ -116,12 +221,13 @@ export function TossConfigurationDialog({
         tossDecision,
         selectedTableSide,
         servingTeam,
+        matches,
       })
     } catch (error) {
-      console.error("Error saving toss:", error)
+      console.error("Error saving configuration:", error)
       toast({
         title: "Error",
-        description: "Failed to save toss configuration. Please try again.",
+        description: "Failed to save configuration. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -131,16 +237,23 @@ export function TossConfigurationDialog({
 
   const tossWinnerName = tossWinner === homeTeam.id ? homeTeam.name : awayTeam.name
 
+  const getPlayerName = (playerId: string) => {
+    const allPlayers = [...homeTeam.players, ...awayTeam.players]
+    return allPlayers.find(p => p.id === playerId)?.name || "Unknown"
+  }
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel?.()}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-2xl flex items-center gap-2">
-            🏓 Table Tennis Toss Configuration
+            🏓 Table Tennis Match Configuration {step === "matches" && "- Player Assignments"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-4 overflow-y-auto flex-1">
+          {step === "toss" && (
+            <>
           {/* Toss Winner Selection */}
           <div className="space-y-2">
             <Label htmlFor="toss-winner" className="text-base font-semibold">
@@ -297,19 +410,182 @@ export function TossConfigurationDialog({
               </ul>
             </div>
           )}
+          </>
+          )}
+
+          {/* Match Assignments Step */}
+          {step === "matches" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Assign players for each of the {matches.length} matches. All matches will be played compulsorily.
+              </p>
+              
+              {matches.map((match, index) => (
+                <Card key={index} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold">Match {match.matchNumber}</h4>
+                    <div className="px-3 py-2 bg-gray-100 rounded-md">
+                      <span className="text-sm font-medium">{match.type === "singles" ? "Singles" : "Doubles"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Home Team Players */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">{homeTeam.name}</Label>
+                      {match.type === "singles" ? (
+                        <Select
+                          value={match.homePlayerIds[0] || ""}
+                          onValueChange={(value) => updateMatchPlayers(index, "home", [value])}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select player" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {homeTeam.players.map((player) => (
+                              <SelectItem key={player.id} value={player.id}>
+                                {player.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <Select
+                            value={match.homePlayerIds[0] || ""}
+                            onValueChange={(value) => {
+                              const newIds = [value, match.homePlayerIds[1] || ""]
+                              updateMatchPlayers(index, "home", newIds.filter(id => id))
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Player 1" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {homeTeam.players.map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={match.homePlayerIds[1] || ""}
+                            onValueChange={(value) => {
+                              const newIds = [match.homePlayerIds[0] || "", value]
+                              updateMatchPlayers(index, "home", newIds.filter(id => id))
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Player 2" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {homeTeam.players.map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Away Team Players */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">{awayTeam.name}</Label>
+                      {match.type === "singles" ? (
+                        <Select
+                          value={match.awayPlayerIds[0] || ""}
+                          onValueChange={(value) => updateMatchPlayers(index, "away", [value])}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select player" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {awayTeam.players.map((player) => (
+                              <SelectItem key={player.id} value={player.id}>
+                                {player.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <Select
+                            value={match.awayPlayerIds[0] || ""}
+                            onValueChange={(value) => {
+                              const newIds = [value, match.awayPlayerIds[1] || ""]
+                              updateMatchPlayers(index, "away", newIds.filter(id => id))
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Player 1" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {awayTeam.players.map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={match.awayPlayerIds[1] || ""}
+                            onValueChange={(value) => {
+                              const newIds = [match.awayPlayerIds[0] || "", value]
+                              updateMatchPlayers(index, "away", newIds.filter(id => id))
+                            }}
+                          >
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Player 2" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {awayTeam.players.map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 flex-shrink-0 pt-4 border-t">
-          <Button variant="outline" onClick={onCancel} disabled={saving} className="flex-1">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || (tossDecision === "serve" && !oppositeTeamSideChoice)}
-            className="flex-1"
-          >
-            {saving ? "Saving..." : "Confirm Toss"}
-          </Button>
+          {step === "toss" ? (
+            <>
+              <Button variant="outline" onClick={onCancel} disabled={saving} className="flex-1">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleNextToMatches}
+                disabled={!tossWinner || !tossDecision || (tossDecision === "table_side" && !tableSideChoice) || (tossDecision === "serve" && !oppositeTeamSideChoice)}
+                className="flex-1"
+              >
+                Next: Player Assignments
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep("toss")} disabled={saving} className="flex-1">
+                Back
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving || !validateMatches()}
+                className="flex-1"
+              >
+                {saving ? "Saving..." : "Complete Setup"}
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
