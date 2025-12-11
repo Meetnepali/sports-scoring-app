@@ -1350,6 +1350,7 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
           awayTeamId={match.awayTeam.id}
           homeTeamName={match.homeTeam.name}
           awayTeamName={match.awayTeam.name}
+          matchScore={match.score}
         />
       </TabsContent>
     </Tabs>

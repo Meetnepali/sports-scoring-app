@@ -31,6 +31,15 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
   // Check if we have new team match structure or old structure
   const hasTeamMatchStructure = match.score?.matches && Array.isArray(match.score.matches)
   
+  console.log('🏸 Badminton Scoreboard - Match data:', {
+    matchId: match.id,
+    hasScore: !!match.score,
+    scoreKeys: match.score ? Object.keys(match.score) : [],
+    hasTeamMatchStructure,
+    matchesCount: match.score?.matches?.length,
+    fullScore: JSON.stringify(match.score, null, 2)
+  })
+  
   const initialScore = match.score ? (hasTeamMatchStructure ? {
     // New team match structure
     matches: match.score.matches,
@@ -197,27 +206,49 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
   // Sync local state with match prop changes (for live updates)
   useEffect(() => {
     if (match.score) {
-      const newScore = {
-        games: Array.isArray(match.score.games) ? match.score.games.map((game: any) => ({
-          home: Number(game.home) || 0,
-          away: Number(game.away) || 0,
-          type: game.type || "singles"
-        })) : score.games,
-        currentGame: Number(match.score.currentGame) ?? score.currentGame,
-        servingPlayer: match.score.servingPlayer || score.servingPlayer,
-        pointsToWin: Number(match.score.pointsToWin) || score.pointsToWin,
-        gamesToWin: Number(match.score.gamesToWin) || score.gamesToWin,
-        isDoubles: match.score.isDoubles ?? score.isDoubles,
-      }
+      // Check if we have the new team match structure
+      const hasMatchStructure = match.score.matches && Array.isArray(match.score.matches)
       
-      // Only update if score actually changed (avoid unnecessary updates)
-      if (JSON.stringify(newScore.games) !== JSON.stringify(score.games) ||
-          newScore.currentGame !== score.currentGame ||
-          newScore.servingPlayer !== score.servingPlayer) {
+      if (hasMatchStructure) {
+        // New structure: update with matches data
+        const newScore = {
+          ...match.score,
+          matches: match.score.matches,
+          currentMatch: Number(match.score.currentMatch) || 0,
+          matchWins: match.score.matchWins || { home: 0, away: 0 },
+          servingTeam: match.score.servingTeam || score.servingTeam || "home",
+        }
+        
         setScore(newScore)
-        setCurrentGame(newScore.currentGame)
-        setServingPlayer(newScore.servingPlayer)
-        setIsDoubles(newScore.isDoubles)
+        const validCurrentMatch = Number(match.score.currentMatch) || 0
+        setCurrentGame(validCurrentMatch) // We use currentGame state for currentMatch index
+        setCurrentSet(Number(match.score.currentSet) || 0)
+        setServingPlayer(match.score.servingTeam || "home")
+      } else {
+        // Old structure: update with games data
+        const newScore = {
+          games: Array.isArray(match.score.games) ? match.score.games.map((game: any) => ({
+            home: Number(game.home) || 0,
+            away: Number(game.away) || 0,
+            type: game.type || "singles"
+          })) : score.games,
+          currentGame: Number(match.score.currentGame) ?? score.currentGame,
+          servingPlayer: match.score.servingPlayer || score.servingPlayer,
+          pointsToWin: Number(match.score.pointsToWin) || score.pointsToWin,
+          gamesToWin: Number(match.score.gamesToWin) || score.gamesToWin,
+          isDoubles: match.score.isDoubles ?? score.isDoubles,
+        }
+        
+        // Only update if score actually changed (avoid unnecessary updates)
+        if (JSON.stringify(newScore.games) !== JSON.stringify(score.games) ||
+            newScore.currentGame !== score.currentGame ||
+            newScore.servingPlayer !== score.servingPlayer) {
+          setScore(newScore)
+          const validCurrentGame = Number(newScore.currentGame)
+          setCurrentGame(!isNaN(validCurrentGame) && validCurrentGame >= 0 ? validCurrentGame : 0)
+          setServingPlayer(newScore.servingPlayer)
+          setIsDoubles(newScore.isDoubles)
+        }
       }
     }
   }, [match.score, match.status])
@@ -585,6 +616,10 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
     let awayWins = 0
     const maxPoints = pointsToWin === 11 ? 15 : pointsToWin === 15 ? 19 : 30
 
+    if (!games || !Array.isArray(games)) {
+      return { homeWins, awayWins }
+    }
+
     games.forEach((game: any) => {
       const homeScore = Number(game.home) || 0
       const awayScore = Number(game.away) || 0
@@ -643,12 +678,15 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
 
   // Check if we need to ask for game type when switching to a game (only for admins)
   useEffect(() => {
-    if (isAdmin && canScore && score.games[currentGame] && !score.games[currentGame].type) {
-      setShowGameTypeDialog(true)
-    } else if (canScore && score.games[currentGame]?.type) {
-      setIsDoubles(score.games[currentGame].type === "doubles")
+    // Only for old structure - new structure has match types defined in config
+    if (!hasTeamMatchStructure && score.games && score.games[currentGame]) {
+      if (isAdmin && canScore && !score.games[currentGame].type) {
+        setShowGameTypeDialog(true)
+      } else if (canScore && score.games[currentGame].type) {
+        setIsDoubles(score.games[currentGame].type === "doubles")
+      }
     }
-  }, [currentGame, canScore, isAdmin])
+  }, [currentGame, canScore, isAdmin, hasTeamMatchStructure, score.games])
 
   // Persist score changes to database (with debouncing)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -664,14 +702,29 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
     // Debounce the save operation (wait 500ms after last change)
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const scoreToSave = {
-          games: score.games,
-          currentGame,
-          servingPlayer,
-          pointsToWin: score.pointsToWin,
-          gamesToWin: score.gamesToWin,
-          isDoubles,
+        let scoreToSave: any
+        
+        if (hasTeamMatchStructure) {
+          // New structure: save matches data
+          scoreToSave = {
+            matches: score.matches,
+            currentMatch: currentGame,
+            currentSet,
+            matchWins: score.matchWins,
+            servingTeam: servingPlayer,
+          }
+        } else {
+          // Old structure: save games data
+          scoreToSave = {
+            games: score.games,
+            currentGame,
+            servingPlayer,
+            pointsToWin: score.pointsToWin,
+            gamesToWin: score.gamesToWin,
+            isDoubles,
+          }
         }
+        
         await updateMatchScore(match.id, scoreToSave)
       } catch (error) {
         console.error("Error auto-saving score:", error)
@@ -685,17 +738,62 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [score.games, currentGame, servingPlayer, score.pointsToWin, score.gamesToWin, isDoubles, isAdmin, canScore, match.id])
+  }, [score.games, score.matches, score.matchWins, currentGame, currentSet, servingPlayer, score.pointsToWin, score.gamesToWin, isDoubles, isAdmin, canScore, match.id, hasTeamMatchStructure])
 
   // Get game wins
   const getGameWins = () => {
     const pointsToWin = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || 21
-    return getGameWinsFromGames(score.games, pointsToWin)
+    
+    // Handle new team match structure
+    if (hasTeamMatchStructure && score.matchWins) {
+      return {
+        homeWins: score.matchWins.home || 0,
+        awayWins: score.matchWins.away || 0
+      }
+    }
+    
+    // Handle old games structure
+    if (score.games && Array.isArray(score.games)) {
+      return getGameWinsFromGames(score.games, pointsToWin)
+    }
+    
+    // Fallback
+    return { homeWins: 0, awayWins: 0 }
   }
 
+  // Helper to get current game/set data for both old and new structures
+  const getCurrentGameData = () => {
+    // New structure: matches[currentMatch].sets[currentSet]
+    if (hasTeamMatchStructure && score.matches && score.matches[currentGame]) {
+      const currentMatch = score.matches[currentGame]
+      const currentSetData = currentMatch.sets && currentMatch.sets[currentSet] 
+        ? currentMatch.sets[currentSet]
+        : { home: 0, away: 0 }
+      return {
+        home: currentSetData.home || 0,
+        away: currentSetData.away || 0,
+        type: currentMatch.type || "singles"
+      }
+    }
+    
+    // Old structure: games[currentGame]
+    if (score.games && score.games[currentGame]) {
+      return {
+        home: score.games[currentGame].home || 0,
+        away: score.games[currentGame].away || 0,
+        type: score.games[currentGame].type || "singles"
+      }
+    }
+    
+    // Fallback
+    return { home: 0, away: 0, type: "singles" }
+  }
+
+  const currentGameData = getCurrentGameData()
+
   const { homeWins, awayWins } = getGameWins()
-  const gamesToWin = score.gamesToWin || badmintonConfig?.gamesToWin || 2
-  const pointsToWin = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || 21
+  const gamesToWin = score.gamesToWin || badmintonConfig?.gamesToWin || badmintonConfig?.setsPerMatch || 2
+  const pointsToWin = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || badmintonConfig?.pointsToWinPerSet || 21
   const maxPoints = pointsToWin === 11 ? 15 : pointsToWin === 15 ? 19 : 30
   const totalGames = gamesToWin === 2 ? 3 : 5
   const matchWinner = homeWins >= gamesToWin ? "home" : awayWins >= gamesToWin ? "away" : null
@@ -771,8 +869,11 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
               awayTeam={match.awayTeam}
               servingPlayer={servingPlayer}
               currentGame={currentGame}
-              games={score.games}
+              games={score.games || []}
               isDoubles={isDoubles}
+              matches={score.matches}
+              currentMatch={currentGame}
+              currentSet={currentSet}
             />
 
             {/* Main Score Display */}
@@ -804,7 +905,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.home || 0}</div>
+                <div className="text-center text-4xl font-bold mb-4">{currentGameData.home}</div>
                 {canScore && isAdmin && (
                   <div className="flex justify-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
@@ -819,7 +920,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
 
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.away || 0}</div>
+                <div className="text-center text-4xl font-bold mb-4">{currentGameData.away}</div>
                 {canScore && isAdmin && (
                   <div className="flex justify-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
@@ -836,8 +937,8 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
             {/* Game Information - Visible to Everyone */}
             <div className="text-center mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-center justify-center gap-2 mb-2">
-                <Badge variant={score.games[currentGame]?.type === "doubles" ? "default" : "outline"}>
-                  {score.games[currentGame]?.type === "doubles" ? "Doubles" : "Singles"}
+                <Badge variant={currentGameData.type === "doubles" ? "default" : "outline"}>
+                  {currentGameData.type === "doubles" ? "Doubles" : "Singles"}
                 </Badge>
                 {!isAdmin && (
                   <Badge variant="outline" className="bg-gray-100 text-gray-600">
@@ -848,7 +949,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
               <p className="text-sm font-medium text-yellow-900">
                 Game {currentGame + 1} of {totalGames} • First to {pointsToWin} points (win by 2, max {maxPoints})
               </p>
-              {(score.games[currentGame]?.home || 0) >= pointsToWin - 1 && (score.games[currentGame]?.away || 0) >= pointsToWin - 1 && (
+              {currentGameData.home >= pointsToWin - 1 && currentGameData.away >= pointsToWin - 1 && (
                 <p className="text-xs text-yellow-700 mt-1">
                   ⚡ Deuce! Win by 2 or first to {maxPoints} points
                 </p>
@@ -866,88 +967,223 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
           </TabsContent>
 
           <TabsContent value="scorecard" className="p-4 space-y-6">
-            {/* Current Game Type */}
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                Game {currentGame + 1}: {score.games[currentGame]?.type === "doubles" ? "Doubles" : "Singles"}
-              </Badge>
-            </div>
+            {/* Team Match Structure - Show matches as tabs */}
+            {hasTeamMatchStructure && score.matches && score.matches.length > 0 ? (
+              <div className="space-y-4">
+                {/* Match Tabs */}
+                <Tabs value={`match-${currentGame}`} onValueChange={(val) => {
+                  const matchIndex = parseInt(val.replace('match-', ''))
+                  setCurrentGame(matchIndex)
+                  setCurrentSet(0) // Reset to first set when switching matches
+                }}>
+                  <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${score.matches.length}, 1fr)` }}>
+                    {score.matches.map((matchData: any, matchIndex: number) => (
+                      <TabsTrigger key={matchIndex} value={`match-${matchIndex}`} className="relative">
+                        Match {matchIndex + 1}
+                        {matchData.winner && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {matchData.winner === "home" ? "H" : "A"}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-            {/* Current Game Score */}
-            <div className="bg-gray-50 p-6 rounded-lg border">
-              <div className="text-center mb-2">
-                <h3 className="font-semibold">Current Game: {currentGame + 1}</h3>
+                  {score.matches.map((matchData: any, matchIndex: number) => (
+                    <TabsContent key={matchIndex} value={`match-${matchIndex}`} className="space-y-6">
+                      {/* Match Type */}
+                      <div className="flex items-center justify-center space-x-2">
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          Match {matchIndex + 1}: {matchData.type === "doubles" ? "Doubles" : "Singles"}
+                        </Badge>
+                        {badmintonConfig?.setsPerMatch && (
+                          <Badge variant="secondary" className="bg-yellow-200 text-yellow-800">
+                            {badmintonConfig.setsPerMatch} set{badmintonConfig.setsPerMatch !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Current Set Score (if match is active) */}
+                      {matchIndex === currentGame && !matchData.winner && (
+                        <div className="bg-gray-50 p-6 rounded-lg border">
+                          <div className="text-center mb-2">
+                            <h3 className="font-semibold">Current Set: {currentSet + 1}</h3>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center">
+                              <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
+                                {matchData.sets[currentSet]?.home || 0}
+                                {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-2">{match.homeTeam.name}</div>
+                            </div>
+
+                            <div className="flex items-center justify-center">
+                              <div className="text-xl font-bold">-</div>
+                            </div>
+
+                            <div className="text-center">
+                              <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
+                                {matchData.sets[currentSet]?.away || 0}
+                                {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-2">{match.awayTeam.name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Set History for this match */}
+                      <div>
+                        <h3 className="font-semibold mb-4">Set History</h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50">
+                                <th className="p-2 text-left">Set</th>
+                                <th className="p-2 text-center">{match.homeTeam.name}</th>
+                                <th className="p-2 text-center">{match.awayTeam.name}</th>
+                                <th className="p-2 text-center">Winner</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {matchData.sets.map((set: any, setIndex: number) => {
+                                const pointsToWinPerSet = score.pointsToWin || badmintonConfig?.pointsToWinPerSet || 21
+                                const maxPointsPerSet = pointsToWinPerSet === 11 ? 15 : pointsToWinPerSet === 15 ? 19 : 30
+                                let winner = null
+                                if ((set.home >= pointsToWinPerSet && set.home - set.away >= 2) || set.home === maxPointsPerSet) {
+                                  winner = "home"
+                                } else if ((set.away >= pointsToWinPerSet && set.away - set.home >= 2) || set.away === maxPointsPerSet) {
+                                  winner = "away"
+                                }
+
+                                return (
+                                  <tr key={setIndex} className={matchIndex === currentGame && setIndex === currentSet ? "bg-yellow-50" : ""}>
+                                    <td className="p-2 border-b">{setIndex + 1}</td>
+                                    <td className="p-2 border-b text-center font-semibold">{set.home || 0}</td>
+                                    <td className="p-2 border-b text-center font-semibold">{set.away || 0}</td>
+                                    <td className="p-2 border-b text-center">
+                                      {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
+                                      {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
+                                      {!winner && "-"}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+
+                {/* Overall Match Wins */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg border-2 border-gray-200">
+                  <h3 className="font-semibold text-center mb-3">Match Wins</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-red-600">{score.matchWins?.home || 0}</div>
+                      <div className="text-sm text-gray-600">{match.homeTeam.name}</div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <div className="text-xl font-bold">-</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">{score.matchWins?.away || 0}</div>
+                      <div className="text-sm text-gray-600">{match.awayTeam.name}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
-                    {score.games[currentGame]?.home || 0}
-                    {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+            ) : (
+              /* Legacy Single Match Structure */
+              <>
+                {/* Current Game Type */}
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    Game {currentGame + 1}: {score.games[currentGame]?.type === "doubles" ? "Doubles" : "Singles"}
+                  </Badge>
+                </div>
+
+                {/* Current Game Score */}
+                <div className="bg-gray-50 p-6 rounded-lg border">
+                  <div className="text-center mb-2">
+                    <h3 className="font-semibold">Current Game: {currentGame + 1}</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
+                        {score.games[currentGame]?.home || 0}
+                        {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                      <div className="text-xl font-bold">-</div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
+                        {score.games[currentGame]?.away || 0}
+                        {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center">
-                  <div className="text-xl font-bold">-</div>
-                </div>
-
-                <div className="text-center">
-                  <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
-                    {score.games[currentGame]?.away || 0}
-                    {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Game History */}
-            <div>
-              <h3 className="font-semibold mb-4">Game History</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-2 text-left">Game</th>
-                      <th className="p-2 text-center">Type</th>
-                      <th className="p-2 text-center">{match.homeTeam.name}</th>
-                      <th className="p-2 text-center">{match.awayTeam.name}</th>
-                      <th className="p-2 text-center">Winner</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {score.games.map((game: any, index: number) => {
-                      const pointsToWinPerGame = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || 21
-                      const maxPointsPerGame = pointsToWinPerGame === 11 ? 15 : pointsToWinPerGame === 15 ? 19 : 30
-                      let winner = null
-                      if ((game.home >= pointsToWinPerGame && game.home - game.away >= 2) || game.home === maxPointsPerGame) {
-                        winner = "home"
-                      } else if ((game.away >= pointsToWinPerGame && game.away - game.home >= 2) || game.away === maxPointsPerGame) {
-                        winner = "away"
-                      }
-                      const gameType = game.type || "singles"
-
-                      return (
-                        <tr key={index} className={index === currentGame ? "bg-yellow-50" : ""}>
-                          <td className="p-2 border-b">{index + 1}</td>
-                          <td className="p-2 border-b text-center">
-                            <Badge variant={gameType === "doubles" ? "default" : "outline"} className="text-xs">
-                              {gameType === "doubles" ? "Doubles" : "Singles"}
-                            </Badge>
-                          </td>
-                          <td className="p-2 border-b text-center font-semibold">{game.home}</td>
-                          <td className="p-2 border-b text-center font-semibold">{game.away}</td>
-                          <td className="p-2 border-b text-center">
-                            {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
-                            {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
-                            {!winner && "-"}
-                          </td>
+                {/* Game History */}
+                <div>
+                  <h3 className="font-semibold mb-4">Game History</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="p-2 text-left">Game</th>
+                          <th className="p-2 text-center">Type</th>
+                          <th className="p-2 text-center">{match.homeTeam.name}</th>
+                          <th className="p-2 text-center">{match.awayTeam.name}</th>
+                          <th className="p-2 text-center">Winner</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {score.games.map((game: any, index: number) => {
+                          const pointsToWinPerGame = score.pointsToWin || badmintonConfig?.pointsToWinPerGame || 21
+                          const maxPointsPerGame = pointsToWinPerGame === 11 ? 15 : pointsToWinPerGame === 15 ? 19 : 30
+                          let winner = null
+                          if ((game.home >= pointsToWinPerGame && game.home - game.away >= 2) || game.home === maxPointsPerGame) {
+                            winner = "home"
+                          } else if ((game.away >= pointsToWinPerGame && game.away - game.home >= 2) || game.away === maxPointsPerGame) {
+                            winner = "away"
+                          }
+                          const gameType = game.type || "singles"
+
+                          return (
+                            <tr key={index} className={index === currentGame ? "bg-yellow-50" : ""}>
+                              <td className="p-2 border-b">{index + 1}</td>
+                              <td className="p-2 border-b text-center">
+                                <Badge variant={gameType === "doubles" ? "default" : "outline"} className="text-xs">
+                                  {gameType === "doubles" ? "Doubles" : "Singles"}
+                                </Badge>
+                              </td>
+                              <td className="p-2 border-b text-center font-semibold">{game.home}</td>
+                              <td className="p-2 border-b text-center font-semibold">{game.away}</td>
+                              <td className="p-2 border-b text-center">
+                                {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
+                                {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
+                                {!winner && "-"}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {isAdmin && (
@@ -973,7 +1209,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.home || 0}</div>
+                <div className="text-center text-4xl font-bold mb-4">{currentGameData.home}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -995,7 +1231,7 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
 
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.games[currentGame]?.away || 0}</div>
+                <div className="text-center text-4xl font-bold mb-4">{currentGameData.away}</div>
                 <div className="flex justify-center gap-4">
                   <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
                     <MinusCircle className="h-4 w-4" />
@@ -1029,18 +1265,40 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
               </Button>
             </div>
 
-            <div className="flex justify-center gap-4">
-              {score.games.map((_: any, index: number) => (
-                <Button
-                  key={index}
-                  variant={currentGame === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentGame(index)}
-                >
-                  Game {index + 1}
-                </Button>
-              ))}
-            </div>
+            {/* Game/Match Navigation */}
+            {hasTeamMatchStructure && score.matches ? (
+              <div className="space-y-2">
+                <Label className="text-center block">Navigate Matches</Label>
+                <div className="flex justify-center gap-4">
+                  {score.matches.map((_: any, index: number) => (
+                    <Button
+                      key={index}
+                      variant={currentGame === index ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setCurrentGame(index)
+                        setCurrentSet(0) // Reset to first set when switching matches
+                      }}
+                    >
+                      Match {index + 1}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : score.games && Array.isArray(score.games) ? (
+              <div className="flex justify-center gap-4">
+                {score.games.map((_: any, index: number) => (
+                  <Button
+                    key={index}
+                    variant={currentGame === index ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentGame(index)}
+                  >
+                    Game {index + 1}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
             </TabsContent>
           )}
         </Tabs>

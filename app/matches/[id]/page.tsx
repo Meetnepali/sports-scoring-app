@@ -80,57 +80,87 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
 
   // Set up EventSource for real-time score updates
   useEffect(() => {
-    if (!match || loading) return
+    if (!match?.id || loading) return
 
-    const eventSource = new EventSource(`/api/stream/match/${id}`)
+    let eventSource: EventSource | null = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 3
 
-    eventSource.onmessage = (event) => {
+    const setupEventSource = () => {
       try {
-        const updateData = JSON.parse(event.data)
-        const { matchId, score, status, version, updatedAt } = updateData
+        eventSource = new EventSource(`/api/stream/match/${match.id}`)
 
-        // Only update if version is newer
-        setCurrentVersion((prevVersion) => {
-          if (version > prevVersion) {
-            // Update match state with new data
-            setMatch((prevMatch) => {
-              if (!prevMatch) return prevMatch
-              
-              const wasCompleted = prevMatch.status === "completed"
-              
-              return {
-                ...prevMatch,
-                score: score,
-                status: status as "scheduled" | "started" | "live" | "completed",
+        eventSource.onmessage = (event) => {
+          try {
+            const updateData = JSON.parse(event.data)
+            const { matchId, score, status, version, updatedAt } = updateData
+
+            // Only update if version is newer
+            setCurrentVersion((prevVersion) => {
+              if (version > prevVersion) {
+                // Update match state with new data
+                setMatch((prevMatch) => {
+                  if (!prevMatch) return prevMatch
+                  
+                  const wasCompleted = prevMatch.status === "completed"
+                  
+                  return {
+                    ...prevMatch,
+                    score: score,
+                    status: status as "scheduled" | "started" | "live" | "completed",
+                  }
+                })
+
+                // Show winner dialog if match just completed
+                if (status === "completed" && !hasSeenWinnerDialogRef.current) {
+                  const seenKey = `match_winner_seen_${id}`
+                  const hasSeen = sessionStorage.getItem(seenKey)
+                  if (!hasSeen) {
+                    setShowWinnerDialog(true)
+                  }
+                }
+
+                return version
               }
+              return prevVersion
             })
-
-            // Show winner dialog if match just completed
-            if (status === "completed" && !hasSeenWinnerDialogRef.current) {
-              const seenKey = `match_winner_seen_${id}`
-              const hasSeen = sessionStorage.getItem(seenKey)
-              if (!hasSeen) {
-                setShowWinnerDialog(true)
-              }
-            }
-
-            return version
+          } catch (error) {
+            console.error("Error parsing SSE message:", error)
           }
-          return prevVersion
-        })
+        }
+
+        eventSource.onerror = (error) => {
+          console.warn("EventSource connection error, will retry if needed")
+          // Close the current connection
+          if (eventSource) {
+            eventSource.close()
+          }
+          
+          // Only retry a limited number of times
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            setTimeout(() => {
+              if (!loading) setupEventSource()
+            }, 1000 * reconnectAttempts) // Exponential backoff
+          }
+        }
+
+        eventSource.onopen = () => {
+          reconnectAttempts = 0 // Reset on successful connection
+        }
       } catch (error) {
-        console.error("Error parsing SSE message:", error)
+        console.error("Error setting up EventSource:", error)
       }
     }
 
-    eventSource.onerror = (error) => {
-      console.error("EventSource error:", error)
-      // EventSource will automatically attempt to reconnect
-    }
+    setupEventSource()
 
     // Cleanup on unmount
     return () => {
-      eventSource.close()
+      if (eventSource) {
+        eventSource.close()
+        eventSource = null
+      }
     }
   }, [id, match?.id, loading])
 

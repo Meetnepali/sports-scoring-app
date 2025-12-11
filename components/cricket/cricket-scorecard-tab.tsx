@@ -68,6 +68,7 @@ interface CricketScorecardTabProps {
   awayTeamId: string
   homeTeamName: string
   awayTeamName: string
+  matchScore?: any
 }
 
 export function CricketScorecardTab({
@@ -76,6 +77,7 @@ export function CricketScorecardTab({
   awayTeamId,
   homeTeamName,
   awayTeamName,
+  matchScore,
 }: CricketScorecardTabProps) {
   const [batting, setBatting] = useState<BattingStats[]>([])
   const [bowling, setBowling] = useState<BowlingStats[]>([])
@@ -152,7 +154,7 @@ export function CricketScorecardTab({
     }
 
     // Get total from match score if available, otherwise calculate from player stats
-    const inningsData = match.score?.innings?.[innings - 1]
+    const inningsData = matchScore?.innings?.[innings - 1]
     const totalRuns = inningsData?.runs || (battingStats.reduce((sum, b) => sum + b.runs_scored, 0) + (extrasData?.total_extras || 0))
     const totalWickets = inningsData?.wickets !== undefined ? inningsData.wickets : battingStats.filter((b) => b.is_out).length
 

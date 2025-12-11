@@ -50,13 +50,13 @@ export default function CreateMatchPage() {
 
   // Table Tennis-specific configuration
   const [tableTennisNumberOfMatches, setTableTennisNumberOfMatches] = useState<"3" | "5" | "7">("3")
-  const [tableTennisSetsPerMatch, setTableTennisSetsPerMatch] = useState<"2" | "3" | "4">("2")
+  const [tableTennisSetsPerMatch, setTableTennisSetsPerMatch] = useState<"1" | "3" | "5" | "7">("3")
   const [tableTennisPointsToWin, setTableTennisPointsToWin] = useState<"11" | "21">("11")
   const [tableTennisMatchTypes, setTableTennisMatchTypes] = useState<Array<"singles" | "doubles">>([])
 
   // Badminton-specific configuration
   const [badmintonNumberOfMatches, setBadmintonNumberOfMatches] = useState<"3" | "5" | "7">("3")
-  const [badmintonSetsPerMatch, setBadmintonSetsPerMatch] = useState<"2" | "3">("2")
+  const [badmintonSetsPerMatch, setBadmintonSetsPerMatch] = useState<"1" | "3" | "5" | "7">("3")
   const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
   const [badmintonMatchTypes, setBadmintonMatchTypes] = useState<Array<"singles" | "doubles">>([])
 
@@ -487,13 +487,15 @@ export default function CreateMatchPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
-                      <Select value={badmintonSetsPerMatch} onValueChange={(val) => setBadmintonSetsPerMatch(val as "2" | "3")} required>
+                      <Select value={badmintonSetsPerMatch} onValueChange={(val) => setBadmintonSetsPerMatch(val as "1" | "3" | "5" | "7")} required>
                         <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
                           <SelectValue placeholder="Select format" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="2">Best of 3 Sets (First to 2 wins)</SelectItem>
-                          <SelectItem value="3">Best of 5 Sets (First to 3 wins)</SelectItem>
+                          <SelectItem value="1">1 Set</SelectItem>
+                          <SelectItem value="3">3 Sets</SelectItem>
+                          <SelectItem value="5">5 Sets</SelectItem>
+                          <SelectItem value="7">7 Sets</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -512,7 +514,7 @@ export default function CreateMatchPage() {
                     </div>
                   </div>
                   <p className="text-xs text-yellow-700">
-                    All {badmintonNumberOfMatches} matches will be played. Each match has {badmintonSetsPerMatch === "2" ? "3" : "5"} sets (first to {badmintonSetsPerMatch} wins). Each set is first to {badmintonPointsToWin} points, win by 2, maximum {badmintonPointsToWin === "11" ? "15" : badmintonPointsToWin === "15" ? "19" : "30"} points.
+                    All {badmintonNumberOfMatches} matches will be played. Each match has {badmintonSetsPerMatch} set{badmintonSetsPerMatch !== "1" ? "s" : ""}. Each set is first to {badmintonPointsToWin} points, win by 2, maximum {badmintonPointsToWin === "11" ? "15" : badmintonPointsToWin === "15" ? "19" : "30"} points.
                   </p>
                   <p className="text-xs text-yellow-600">
                     Note: Toss for serve/court side will be conducted when the match starts for the first time.
@@ -542,6 +544,9 @@ export default function CreateMatchPage() {
                                 <SelectItem value="doubles">Doubles</SelectItem>
                               </SelectContent>
                             </Select>
+                            <span className="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+                              {badmintonSetsPerMatch} set{badmintonSetsPerMatch !== "1" ? "s" : ""}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -575,14 +580,15 @@ export default function CreateMatchPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="setsPerMatch" className="text-base font-semibold">Sets per Match *</Label>
-                      <Select value={tableTennisSetsPerMatch} onValueChange={(val) => setTableTennisSetsPerMatch(val as "2" | "3" | "4")} required>
+                      <Select value={tableTennisSetsPerMatch} onValueChange={(val) => setTableTennisSetsPerMatch(val as "1" | "3" | "5" | "7")} required>
                         <SelectTrigger id="setsPerMatch" className="h-12 bg-white">
                           <SelectValue placeholder="Select format" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="2">Best of 3 Sets (First to 2 wins)</SelectItem>
-                          <SelectItem value="3">Best of 5 Sets (First to 3 wins)</SelectItem>
-                          <SelectItem value="4">Best of 7 Sets (First to 4 wins)</SelectItem>
+                          <SelectItem value="1">1 Set</SelectItem>
+                          <SelectItem value="3">3 Sets</SelectItem>
+                          <SelectItem value="5">5 Sets</SelectItem>
+                          <SelectItem value="7">7 Sets</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -600,7 +606,7 @@ export default function CreateMatchPage() {
                     </div>
                   </div>
                   <p className="text-xs text-green-700">
-                    All {tableTennisNumberOfMatches} matches will be played. Each match has {tableTennisSetsPerMatch === "2" ? "3" : tableTennisSetsPerMatch === "3" ? "5" : "7"} sets (first to {tableTennisSetsPerMatch} wins). Each set is first to {tableTennisPointsToWin} points, win by 2.
+                    All {tableTennisNumberOfMatches} matches will be played. Each match has {tableTennisSetsPerMatch} set{tableTennisSetsPerMatch !== "1" ? "s" : ""}. Each set is first to {tableTennisPointsToWin} points, win by 2.
                   </p>
                   <p className="text-xs text-green-600">
                     Note: Toss for serve/table side will be conducted when the match starts for the first time.
@@ -630,6 +636,9 @@ export default function CreateMatchPage() {
                                 <SelectItem value="doubles">Doubles</SelectItem>
                               </SelectContent>
                             </Select>
+                            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+                              {tableTennisSetsPerMatch} set{tableTennisSetsPerMatch !== "1" ? "s" : ""}
+                            </span>
                           </div>
                         ))}
                       </div>

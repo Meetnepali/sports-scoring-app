@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Match } from "@/lib/static-data"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { Clock, MapPin, Trophy, Zap } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
+import { useAuth } from "@/lib/auth-context"
 
 interface EnhancedMatchCardProps {
   match: Match
@@ -32,110 +34,14 @@ const sportGlows: Record<string, string> = {
   badminton: "shadow-pink-400/20",
 }
 
-export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMatchCardProps) {
-  const [match, setMatch] = useState<Match>(initialMatch)
-  const [currentVersion, setCurrentVersion] = useState<number>(0)
-
-  // Set up EventSource for real-time score updates (only for live matches)
-  useEffect(() => {
-    if (!match || match.status !== "live") return
-
-    const eventSource = new EventSource(`/api/stream/match/${match.id}`)
-
-    eventSource.onmessage = (event) => {
-      try {
-        const updateData = JSON.parse(event.data)
-        const { matchId, score, status, version } = updateData
-
-        // Only update if version is newer
-        setCurrentVersion((prevVersion) => {
-          if (version > prevVersion) {
-            setMatch((prevMatch) => {
-              if (!prevMatch) return prevMatch
-              return {
-                ...prevMatch,
-                score: score,
-                status: status as "scheduled" | "started" | "live" | "completed",
-              }
-            })
-            return version
-          }
-          return prevVersion
-        })
-      } catch (error) {
-        console.error("Error parsing SSE message:", error)
-      }
-    }
-
-    eventSource.onerror = (error) => {
-      console.error("EventSource error:", error)
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [match?.id, match?.status])
-
-  // Update match if initialMatch changes
-  useEffect(() => {
-    setMatch(initialMatch)
-  }, [initialMatch.id, initialMatch.status])
+export function EnhancedMatchCard({ match, index = 0 }: EnhancedMatchCardProps) {
+  const router = useRouter()
+  const { isAdmin } = useAuth()
 
   const isLive = match.status === "live"
   const isCompleted = match.status === "completed"
   const sportColor = sportColors[match.sport] || "from-blue-500 to-indigo-500"
   const sportGlow = sportGlows[match.sport] || "shadow-blue-500/20"
-
-  const getScore = (team: "home" | "away") => {
-    if (!match.score) return "-"
-    
-    // Handle different sport score structures
-    if (match.sport === "cricket") {
-      const innings = match.score?.innings
-      if (!innings || !Array.isArray(innings)) return "-"
-      
-      if (team === "home") {
-        return innings[0] ? `${innings[0].runs}/${innings[0].wickets}` : "-"
-      } else {
-        return innings[1] ? `${innings[1].runs}/${innings[1].wickets}` : "-"
-      }
-    } else if (match.sport === "volleyball") {
-      const sets = match.score?.sets
-      if (!sets || !Array.isArray(sets)) return 0
-      
-      let wins = 0
-      sets.forEach((set: any) => {
-        if (team === "home" && set.home > set.away) wins++
-        else if (team === "away" && set.away > set.home) wins++
-      })
-      return wins
-    } else if (match.sport === "table-tennis" || match.sport === "badminton") {
-      // Check for new team match structure
-      if (match.score?.matches && Array.isArray(match.score.matches)) {
-        const matchWins = match.score.matchWins || { home: 0, away: 0 }
-        return team === "home" ? matchWins.home : matchWins.away
-      }
-      
-      // Fallback to old structure
-      const items = match.score?.sets || match.score?.games
-      if (!items || !Array.isArray(items)) return 0
-      
-      let wins = 0
-      items.forEach((item: any) => {
-        if (team === "home" && item.home > item.away) wins++
-        else if (team === "away" && item.away > item.home) wins++
-      })
-      return wins
-    } else if (match.sport === "futsal") {
-      return team === "home" ? match.score?.home || 0 : match.score?.away || 0
-    } else if (match.sport === "chess") {
-      const teamScore = match.score?.teamScore
-      if (!teamScore) return 0
-      return team === "home" ? teamScore.home || 0 : teamScore.away || 0
-    } else {
-      return team === "home" ? match.score.homeScore || 0 : match.score.awayScore || 0
-    }
-  }
 
   return (
     <motion.div
@@ -144,22 +50,15 @@ export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMa
       transition={{ duration: 0.4, delay: index * 0.1 }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
-      <Link href={`/matches/${initialMatch.id || match.id}`}>
+      <Link href={`/matches/${match.id}`}>
         <Card className={`glass angular-card overflow-hidden transition-all duration-300 hover:shadow-2xl ${sportGlow} border-2 ${isLive ? 'energy-border animate-energy-pulse' : 'border-border/50'} group cursor-pointer`}>
           {/* Status Badge */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
             {isLive && (
-              <>
-                <Badge className="bg-red-500 text-white angular-badge animate-pulse flex items-center gap-1 px-3">
-                  <Zap className="h-3 w-3" />
-                  LIVE
-                </Badge>
-                {match.score && (
-                  <Badge variant="secondary" className="angular-badge font-bold text-base">
-                    {getScore("home")} - {getScore("away")}
-                  </Badge>
-                )}
-              </>
+              <Badge className="bg-red-500 text-white angular-badge animate-pulse flex items-center gap-1 px-3">
+                <Zap className="h-3 w-3" />
+                LIVE
+              </Badge>
             )}
             {isCompleted && (
               <Badge variant="secondary" className="angular-badge">
@@ -201,9 +100,6 @@ export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMa
                     {match.homeTeam.name}
                   </span>
                 </div>
-                <div className={`text-2xl font-bold ${isLive ? 'energy-glow' : ''} min-w-[3rem] text-right`}>
-                  {getScore("home")}
-                </div>
               </div>
 
               {/* VS Divider */}
@@ -223,9 +119,6 @@ export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMa
                     {match.awayTeam.name}
                   </span>
                 </div>
-                <div className={`text-2xl font-bold ${isLive ? 'energy-glow' : ''} min-w-[3rem] text-right`}>
-                  {getScore("away")}
-                </div>
               </div>
             </div>
 
@@ -237,13 +130,28 @@ export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMa
                   {isLive ? "Live now" : isCompleted ? "Completed" : formatDistanceToNow(new Date(match.date), { addSuffix: true })}
                 </span>
               </div>
-              <motion.div
-                className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                initial={{ x: -10 }}
-                whileHover={{ x: 0 }}
-              >
-                View Details →
-              </motion.div>
+              {isAdmin && (match.status === "live" || match.status === "started" || match.status === "completed") ? (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    router.push(`/matches/${match.id}`)
+                  }}
+                  className="h-7 text-xs"
+                >
+                  {match.status === "live" ? "Open Score" : "View Score"}
+                </Button>
+              ) : (
+                <motion.div
+                  className="text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                  initial={{ x: -10 }}
+                  whileHover={{ x: 0 }}
+                >
+                  View Details →
+                </motion.div>
+              )}
             </div>
           </div>
         </Card>

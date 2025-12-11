@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Match } from "@/lib/static-data"
 import { cn } from "@/lib/utils"
-import { useMemo, useState, useEffect, type MouseEvent } from "react"
+import { useMemo, useState, type MouseEvent } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Trash2 } from "lucide-react"
 import {
@@ -90,139 +90,15 @@ function getTournamentBadge(match: ExtendedMatch) {
   return placeholderLogo
 }
 
-function getLiveScore(match: Match): { home: string | number; away: string | number } | null {
-  if (!match.score || match.status === "scheduled") return null
 
-  try {
-    switch (match.sport) {
-      case "cricket": {
-        const innings = match.score?.innings
-        if (!innings || !Array.isArray(innings)) return null
-        
-        const currentInnings = match.score?.currentInnings || 0
-        if (currentInnings === 0 && innings[0]) {
-          return { home: `${innings[0].runs}/${innings[0].wickets}`, away: "-" }
-        } else if (currentInnings === 1 && innings[1]) {
-          return { 
-            home: `${innings[0]?.runs}/${innings[0]?.wickets}`, 
-            away: `${innings[1].runs}/${innings[1].wickets}` 
-          }
-        }
-        return null
-      }
 
-      case "volleyball": {
-        const sets = match.score?.sets
-        if (!sets || !Array.isArray(sets)) return null
-        
-        let homeSets = 0
-        let awaySets = 0
-        sets.forEach((set: any) => {
-          if (set.home > set.away) homeSets++
-          else if (set.away > set.home) awaySets++
-        })
-        
-        return { home: homeSets, away: awaySets }
-      }
-
-      case "futsal": {
-        return { 
-          home: match.score?.home || 0, 
-          away: match.score?.away || 0 
-        }
-      }
-
-      case "table-tennis":
-      case "badminton": {
-        // Check for new team match structure
-        if (match.score?.matches && Array.isArray(match.score.matches)) {
-          const matchWins = match.score.matchWins || { home: 0, away: 0 }
-          return { home: matchWins.home, away: matchWins.away }
-        }
-        
-        // Fallback to old structure
-        const items = match.score?.sets || match.score?.games
-        if (!items || !Array.isArray(items)) return null
-        
-        let homeWins = 0
-        let awayWins = 0
-        items.forEach((item: any) => {
-          if (item.home > item.away) homeWins++
-          else if (item.away > item.home) awayWins++
-        })
-        
-        return { home: homeWins, away: awayWins }
-      }
-
-      case "chess": {
-        const teamScore = match.score?.teamScore
-        if (!teamScore) return null
-        return { home: teamScore.home || 0, away: teamScore.away || 0 }
-      }
-
-      default:
-        return null
-    }
-  } catch (error) {
-    console.error("Error getting live score:", error)
-    return null
-  }
-}
-
-export function MatchListItem({ match: initialMatch, status, starting, onStartMatch, onDelete }: MatchListItemProps) {
+export function MatchListItem({ match, status, starting, onStartMatch, onDelete }: MatchListItemProps) {
   const router = useRouter()
   const { isAdmin } = useAuth()
-  const [match, setMatch] = useState<ExtendedMatch>(initialMatch)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [currentVersion, setCurrentVersion] = useState<number>(0)
   const formattedDate = useMemo(() => formatMatchDate(match.date), [match.date])
   const formattedTime = useMemo(() => formatMatchTime(match.date), [match.date])
-
-  // Set up EventSource for real-time score updates (only for live matches)
-  useEffect(() => {
-    if (!match || (match.status !== "live" && status !== "live")) return
-
-    const eventSource = new EventSource(`/api/stream/match/${match.id}`)
-
-    eventSource.onmessage = (event) => {
-      try {
-        const updateData = JSON.parse(event.data)
-        const { matchId, score, status: newStatus, version } = updateData
-
-        // Only update if version is newer
-        setCurrentVersion((prevVersion) => {
-          if (version > prevVersion) {
-            setMatch((prevMatch) => {
-              if (!prevMatch) return prevMatch
-              return {
-                ...prevMatch,
-                score: score,
-                status: newStatus as "scheduled" | "started" | "live" | "completed",
-              }
-            })
-            return version
-          }
-          return prevVersion
-        })
-      } catch (error) {
-        console.error("Error parsing SSE message:", error)
-      }
-    }
-
-    eventSource.onerror = (error) => {
-      console.error("EventSource error:", error)
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [match?.id, match?.status, status])
-
-  // Update match if initialMatch changes
-  useEffect(() => {
-    setMatch(initialMatch)
-  }, [initialMatch.id, initialMatch.status])
 
   const homeLogo = getTeamLogo(match.homeTeam.logo)
   const awayLogo = getTeamLogo(match.awayTeam.logo)
@@ -288,25 +164,10 @@ export function MatchListItem({ match: initialMatch, status, starting, onStartMa
 
         <div className="flex items-center justify-between gap-3 md:w-auto md:justify-end">
           {(status === "live" || match.status === "live") && (
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-red-600">
-                <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(248,113,113,0.25)]" />
-                Live
-              </span>
-              {(() => {
-                const liveScore = getLiveScore(match)
-                if (liveScore) {
-                  return (
-                    <span className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
-                      <span>{liveScore.home}</span>
-                      <span className="text-slate-400">-</span>
-                      <span>{liveScore.away}</span>
-                    </span>
-                  )
-                }
-                return null
-              })()}
-            </div>
+            <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-red-600">
+              <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(248,113,113,0.25)]" />
+              Live
+            </span>
           )}
           {match.status === "started" && (
             <span className="flex items-center gap-2 rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-yellow-600">
@@ -352,10 +213,7 @@ export function MatchListItem({ match: initialMatch, status, starting, onStartMa
             <button
               type="button"
               onClick={() => {
-                const matchId = initialMatch.id || match.id
-                if (matchId) {
-                  router.push(`/matches/${matchId}`)
-                }
+                router.push(`/matches/${match.id}`)
               }}
               className="rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-800 transition group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white"
             >

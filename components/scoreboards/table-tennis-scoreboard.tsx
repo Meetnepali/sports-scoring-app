@@ -31,6 +31,15 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   // Check if we have new team match structure or old structure
   const hasTeamMatchStructure = match.score?.matches && Array.isArray(match.score.matches)
   
+  console.log('🏓 Table Tennis Scoreboard - Match data:', {
+    matchId: match.id,
+    hasScore: !!match.score,
+    scoreKeys: match.score ? Object.keys(match.score) : [],
+    hasTeamMatchStructure,
+    matchesCount: match.score?.matches?.length,
+    fullScore: JSON.stringify(match.score, null, 2)
+  })
+  
   const initialScore = match.score ? (hasTeamMatchStructure ? {
     // New team match structure
     matches: match.score.matches,
@@ -199,14 +208,19 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   // Sync local state with match prop changes (for live updates)
   useEffect(() => {
     if (match.score) {
-      const newScore = {
-        sets: Array.isArray(match.score.sets) && match.score.sets.length > 0
-          ? match.score.sets.map((set: any) => ({
-              home: Number(set?.home) || 0,
-              away: Number(set?.away) || 0,
-              type: set?.type || "singles"
-            })) 
-          : score.sets,
+      // Check if we have new team match structure or old structure
+      const hasTeamMatchStructure = match.score?.matches && Array.isArray(match.score.matches)
+      
+      // Only sync sets if using legacy structure
+      if (!hasTeamMatchStructure) {
+        const newScore = {
+          sets: Array.isArray(match.score.sets) && match.score.sets.length > 0
+            ? match.score.sets.map((set: any) => ({
+                home: Number(set?.home) || 0,
+                away: Number(set?.away) || 0,
+                type: set?.type || "singles"
+              })) 
+            : (Array.isArray(score.sets) ? score.sets : []),
         currentSet: Number(match.score.currentSet) ?? score.currentSet,
         servingPlayer: match.score.servingPlayer || score.servingPlayer,
         pointsToWin: Number(match.score.pointsToWin) || score.pointsToWin,
@@ -223,6 +237,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
         setCurrentSet(validSetIndex)
         setServingPlayer(newScore.servingPlayer)
         setIsDoubles(newScore.isDoubles)
+      }
       }
     }
   }, [match.score, match.status])
@@ -413,9 +428,13 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   }
 
   // Helper function to calculate set wins
-  const getSetWinsFromSets = (sets: any[], pointsToWin: number) => {
+  const getSetWinsFromSets = (sets: any[] | undefined | null, pointsToWin: number) => {
     let homeWins = 0
     let awayWins = 0
+
+    if (!sets || !Array.isArray(sets)) {
+      return { homeWins, awayWins }
+    }
 
     sets.forEach((set: any) => {
       const homeScore = Number(set.home) || 0
@@ -475,12 +494,14 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
 
   // Check if we need to ask for set type when switching to a set (only for admins)
   useEffect(() => {
+    if (hasTeamMatchStructure || !score.sets || !Array.isArray(score.sets)) return
+    
     if (isAdmin && canScore && score.sets[currentSet] && !score.sets[currentSet].type) {
       setShowSetTypeDialog(true)
     } else if (canScore && score.sets[currentSet]?.type) {
       setIsDoubles(score.sets[currentSet].type === "doubles")
     }
-  }, [currentSet, canScore, isAdmin])
+  }, [currentSet, canScore, isAdmin, hasTeamMatchStructure, score.sets])
 
   // Persist score changes to database (with debouncing)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -521,6 +542,15 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
 
   // Get set wins
   const getSetWins = () => {
+    // Handle team match structure (new structure)
+    if ((hasTeamMatchStructure || score.matches) && score.matchWins) {
+      return {
+        homeWins: score.matchWins.home || 0,
+        awayWins: score.matchWins.away || 0
+      }
+    }
+    
+    // Handle legacy sets structure
     const pointsToWin = score.pointsToWin || tableTennisConfig?.pointsToWinPerSet || 11
     return getSetWinsFromSets(score.sets, pointsToWin)
   }
@@ -602,7 +632,7 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               awayTeam={match.awayTeam}
               servingPlayer={servingPlayer}
               currentSet={currentSet}
-              sets={score.sets}
+              sets={score.sets && Array.isArray(score.sets) ? score.sets : []}
               isDoubles={isDoubles}
             />
 
@@ -632,63 +662,67 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
             </div>
 
             {/* Current Set Score - Visible to Everyone */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
-                {canScore && isAdmin && (
-                  <div className="flex justify-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
+            {score.sets && Array.isArray(score.sets) && score.sets[currentSet] ? (
+              <>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
+                    <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
+                    {canScore && isAdmin && (
+                      <div className="flex justify-center gap-4">
+                        <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
-                {canScore && isAdmin && (
-                  <div className="flex justify-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
+                    <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
+                    {canScore && isAdmin && (
+                      <div className="flex justify-center gap-4">
+                        <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Set Information - Visible to Everyone */}
-            <div className="text-center mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Badge variant={score.sets[currentSet]?.type === "doubles" ? "default" : "outline"}>
-                  {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
-                </Badge>
-                {!isAdmin && (
-                  <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                    Read-Only
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm font-medium text-green-900">
-                Set {currentSet + 1} of {totalSets} • First to {pointsToWin} points (win by 2) • Best of {totalSets} sets
-              </p>
-              {(score.sets[currentSet]?.home || 0) >= pointsToWin - 1 && (score.sets[currentSet]?.away || 0) >= pointsToWin - 1 ? (
-                <p className="text-xs text-green-700 mt-1">
-                  ⚡ Deuce! Server alternates every point. Win by 2 required!
-                </p>
-              ) : (
-                <p className="text-xs text-green-700 mt-1">
-                  Server alternates every 2 points
-                </p>
-              )}
-            </div>
+                {/* Set Information - Visible to Everyone */}
+                <div className="text-center mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Badge variant={score.sets[currentSet]?.type === "doubles" ? "default" : "outline"}>
+                      {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
+                    </Badge>
+                    {!isAdmin && (
+                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                        Read-Only
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-green-900">
+                    Set {currentSet + 1} of {totalSets} • First to {pointsToWin} points (win by 2) • Best of {totalSets} sets
+                  </p>
+                  {(score.sets[currentSet]?.home || 0) >= pointsToWin - 1 && (score.sets[currentSet]?.away || 0) >= pointsToWin - 1 ? (
+                    <p className="text-xs text-green-700 mt-1">
+                      ⚡ Deuce! Server alternates every point. Win by 2 required!
+                    </p>
+                  ) : (
+                    <p className="text-xs text-green-700 mt-1">
+                      Server alternates every 2 points
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : null}
             
             {!isAdmin && (
               <div className="text-center mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -701,87 +735,231 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
           </TabsContent>
 
           <TabsContent value="scorecard" className="p-4 space-y-6">
-            {/* Current Set Type */}
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                Set {currentSet + 1}: {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
-              </Badge>
-            </div>
+            {/* Team Match Structure - Show matches as tabs */}
+            {hasTeamMatchStructure && score.matches && score.matches.length > 0 ? (
+              <div className="space-y-4">
+                {/* Match Tabs */}
+                <Tabs value={`match-${currentSet}`} onValueChange={(val) => {
+                  const matchIndex = parseInt(val.replace('match-', ''))
+                  setCurrentSet(matchIndex)
+                  setCurrentSetInMatch(0) // Reset to first set when switching matches
+                }}>
+                  <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${score.matches.length}, 1fr)` }}>
+                    {score.matches.map((matchData: any, matchIndex: number) => (
+                      <TabsTrigger key={matchIndex} value={`match-${matchIndex}`} className="relative">
+                        Match {matchIndex + 1}
+                        {matchData.winner && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {matchData.winner === "home" ? "H" : "A"}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-            {/* Current Set Score */}
-            <div className="bg-gray-50 p-6 rounded-lg border">
-              <div className="text-center mb-2">
-                <h3 className="font-semibold">Current Set: {currentSet + 1}</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
-                    {score.sets[currentSet]?.home || 0}
-                    {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+                  {score.matches.map((matchData: any, matchIndex: number) => (
+                    <TabsContent key={matchIndex} value={`match-${matchIndex}`} className="space-y-6">
+                      {/* Match Type */}
+                      <div className="flex items-center justify-center space-x-2">
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          Match {matchIndex + 1}: {matchData.type === "doubles" ? "Doubles" : "Singles"}
+                        </Badge>
+                        {tableTennisConfig?.setsPerMatch && (
+                          <Badge variant="secondary" className="bg-yellow-200 text-yellow-800">
+                            {tableTennisConfig.setsPerMatch} set{tableTennisConfig.setsPerMatch !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Current Set Score (if match is active) */}
+                      {matchIndex === currentSet && !matchData.winner && (
+                        <div className="bg-gray-50 p-6 rounded-lg border">
+                          <div className="text-center mb-2">
+                            <h3 className="font-semibold">Current Set: {currentSetInMatch + 1}</h3>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center">
+                              <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
+                                {matchData.sets[currentSetInMatch]?.home || 0}
+                                {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-2">{match.homeTeam.name}</div>
+                            </div>
+
+                            <div className="flex items-center justify-center">
+                              <div className="text-xl font-bold">-</div>
+                            </div>
+
+                            <div className="text-center">
+                              <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
+                                {matchData.sets[currentSetInMatch]?.away || 0}
+                                {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-2">{match.awayTeam.name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Set History for this match */}
+                      <div>
+                        <h3 className="font-semibold mb-4">Set History</h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-gray-50">
+                                <th className="p-2 text-left">Set</th>
+                                <th className="p-2 text-center">{match.homeTeam.name}</th>
+                                <th className="p-2 text-center">{match.awayTeam.name}</th>
+                                <th className="p-2 text-center">Winner</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {matchData.sets.map((set: any, setIndex: number) => {
+                                const pointsToWinPerSet = score.pointsToWin || tableTennisConfig?.pointsToWinPerSet || 11
+                                let winner = null
+                                if (set.home >= pointsToWinPerSet && set.home - set.away >= 2) {
+                                  winner = "home"
+                                } else if (set.away >= pointsToWinPerSet && set.away - set.home >= 2) {
+                                  winner = "away"
+                                }
+
+                                return (
+                                  <tr key={setIndex} className={matchIndex === currentSet && setIndex === currentSetInMatch ? "bg-yellow-50" : ""}>
+                                    <td className="p-2 border-b">{setIndex + 1}</td>
+                                    <td className="p-2 border-b text-center font-semibold">{set.home || 0}</td>
+                                    <td className="p-2 border-b text-center font-semibold">{set.away || 0}</td>
+                                    <td className="p-2 border-b text-center">
+                                      {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
+                                      {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
+                                      {!winner && "-"}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+
+                {/* Overall Match Wins */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-lg border-2 border-gray-200">
+                  <h3 className="font-semibold text-center mb-3">Match Wins</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-red-600">{score.matchWins?.home || 0}</div>
+                      <div className="text-sm text-gray-600">{match.homeTeam.name}</div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <div className="text-xl font-bold">-</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">{score.matchWins?.away || 0}</div>
+                      <div className="text-sm text-gray-600">{match.awayTeam.name}</div>
+                    </div>
                   </div>
                 </div>
+              </div>
+            ) : (
+              /* Legacy Single Match Structure */
+              <>
+                {/* Current Set Type */}
+                {score.sets && Array.isArray(score.sets) && score.sets[currentSet] ? (
+                  <>
+                    <div className="flex items-center justify-center space-x-2 mb-4">
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        Set {currentSet + 1}: {score.sets[currentSet]?.type === "doubles" ? "Doubles" : "Singles"}
+                      </Badge>
+                    </div>
 
-                <div className="flex items-center justify-center">
-                  <div className="text-xl font-bold">-</div>
-                </div>
+                    {/* Current Set Score */}
+                    <div className="bg-gray-50 p-6 rounded-lg border">
+                      <div className="text-center mb-2">
+                        <h3 className="font-semibold">Current Set: {currentSet + 1}</h3>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <div className={`text-5xl font-bold ${servingPlayer === "home" ? "text-red-600" : ""}`}>
+                            {score.sets[currentSet]?.home || 0}
+                            {servingPlayer === "home" && <span className="text-xl ml-1">•</span>}
+                          </div>
+                        </div>
 
-                <div className="text-center">
-                  <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
-                    {score.sets[currentSet]?.away || 0}
-                    {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
+                        <div className="flex items-center justify-center">
+                          <div className="text-xl font-bold">-</div>
+                        </div>
+
+                        <div className="text-center">
+                          <div className={`text-5xl font-bold ${servingPlayer === "away" ? "text-blue-600" : ""}`}>
+                            {score.sets[currentSet]?.away || 0}
+                            {servingPlayer === "away" && <span className="text-xl ml-1">•</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                {/* Set History */}
+                {score.sets && Array.isArray(score.sets) ? (
+                  <div>
+                    <h3 className="font-semibold mb-4">Set History</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="p-2 text-left">Set</th>
+                            <th className="p-2 text-center">Type</th>
+                            <th className="p-2 text-center">{match.homeTeam.name}</th>
+                            <th className="p-2 text-center">{match.awayTeam.name}</th>
+                            <th className="p-2 text-center">Winner</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {score.sets.map((set: any, index: number) => {
+                          const pointsToWinPerSet = score.pointsToWin || tableTennisConfig?.pointsToWinPerSet || 11
+                          let winner = null
+                          if (set.home >= pointsToWinPerSet && set.home - set.away >= 2) {
+                            winner = "home"
+                          } else if (set.away >= pointsToWinPerSet && set.away - set.home >= 2) {
+                            winner = "away"
+                          }
+                          const setType = set.type || "singles"
+
+                          return (
+                            <tr key={index} className={index === currentSet ? "bg-green-50" : ""}>
+                              <td className="p-2 border-b">{index + 1}</td>
+                              <td className="p-2 border-b text-center">
+                                <Badge variant={setType === "doubles" ? "default" : "outline"} className="text-xs">
+                                  {setType === "doubles" ? "Doubles" : "Singles"}
+                                </Badge>
+                              </td>
+                              <td className="p-2 border-b text-center font-semibold">{set.home}</td>
+                              <td className="p-2 border-b text-center font-semibold">{set.away}</td>
+                              <td className="p-2 border-b text-center">
+                                {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
+                                {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
+                                {!winner && "-"}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Set History */}
-            <div>
-              <h3 className="font-semibold mb-4">Set History</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-2 text-left">Set</th>
-                      <th className="p-2 text-center">Type</th>
-                      <th className="p-2 text-center">{match.homeTeam.name}</th>
-                      <th className="p-2 text-center">{match.awayTeam.name}</th>
-                      <th className="p-2 text-center">Winner</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {score.sets.map((set: any, index: number) => {
-                      const pointsToWinPerSet = score.pointsToWin || tableTennisConfig?.pointsToWinPerSet || 11
-                      let winner = null
-                      if (set.home >= pointsToWinPerSet && set.home - set.away >= 2) {
-                        winner = "home"
-                      } else if (set.away >= pointsToWinPerSet && set.away - set.home >= 2) {
-                        winner = "away"
-                      }
-                      const setType = set.type || "singles"
-
-                      return (
-                        <tr key={index} className={index === currentSet ? "bg-green-50" : ""}>
-                          <td className="p-2 border-b">{index + 1}</td>
-                          <td className="p-2 border-b text-center">
-                            <Badge variant={setType === "doubles" ? "default" : "outline"} className="text-xs">
-                              {setType === "doubles" ? "Doubles" : "Singles"}
-                            </Badge>
-                          </td>
-                          <td className="p-2 border-b text-center font-semibold">{set.home}</td>
-                          <td className="p-2 border-b text-center font-semibold">{set.away}</td>
-                          <td className="p-2 border-b text-center">
-                            {winner === "home" && <span className="text-red-600">{match.homeTeam.name}</span>}
-                            {winner === "away" && <span className="text-blue-600">{match.awayTeam.name}</span>}
-                            {!winner && "-"}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                ) : (
+                  <div className="text-center p-4 text-gray-500">
+                    <p>Set history is not available.</p>
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           {isAdmin && (
@@ -804,18 +982,19 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
-                <div className="flex justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
+            {score.sets && Array.isArray(score.sets) && score.sets[currentSet] ? (
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
+                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.home || 0}</div>
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("home", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 <div className="mt-4 text-center">
                   <Button
                     variant={servingPlayer === "home" ? "default" : "outline"}
@@ -827,28 +1006,33 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
                 </div>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg border">
-                <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
-                <div className="flex justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="mt-4 text-center">
-                  <Button
-                    variant={servingPlayer === "away" ? "default" : "outline"}
-                    onClick={() => setServingPlayer("away")}
-                    className="w-full"
-                  >
-                    Serving
-                  </Button>
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
+                  <div className="text-center text-4xl font-bold mb-4">{score.sets[currentSet]?.away || 0}</div>
+                  <div className="flex justify-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => updateScore("away", 1)}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="mt-4 text-center">
+                    <Button
+                      variant={servingPlayer === "away" ? "default" : "outline"}
+                      onClick={() => setServingPlayer("away")}
+                      className="w-full"
+                    >
+                      Serving
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center p-8 text-gray-500">
+                <p>Score data is not available. Please configure the match first.</p>
+              </div>
+            )}
 
             <div className="flex justify-center mt-4">
               <Button
@@ -863,18 +1047,20 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               </Button>
             </div>
 
-            <div className="flex justify-center gap-4">
-              {score.sets.map((_: any, index: number) => (
-                <Button
-                  key={index}
-                  variant={currentSet === index ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentSet(index)}
-                >
-                  Set {index + 1}
-                </Button>
-              ))}
-            </div>
+            {score.sets && Array.isArray(score.sets) ? (
+              <div className="flex justify-center gap-4">
+                {score.sets.map((_: any, index: number) => (
+                  <Button
+                    key={index}
+                    variant={currentSet === index ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentSet(index)}
+                  >
+                    Set {index + 1}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
           </TabsContent>
           )}
         </Tabs>

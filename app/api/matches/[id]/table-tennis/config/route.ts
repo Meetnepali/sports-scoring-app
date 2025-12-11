@@ -15,6 +15,19 @@ async function updateMatchScore(
   numberOfMatches?: number,
   setsPerMatch?: number
 ) {
+  console.log('🔧 updateMatchScore called with:', {
+    matchId,
+    hasMatches: !!matches,
+    matchesLength: matches?.length,
+    servingTeam,
+    pointsToWinPerSet,
+    setsToWin,
+    matchTypes,
+    numberOfMatches,
+    setsPerMatch,
+    configCompleted
+  })
+
   const matchResult = await query("SELECT score FROM matches WHERE id = $1", [matchId])
   
   if (matchResult && Array.isArray(matchResult) && matchResult.length > 0) {
@@ -24,6 +37,7 @@ async function updateMatchScore(
     // Initialize new team-based match structure
     // If matches array not provided but we have matchTypes from config, initialize from config
     if ((!matches || !Array.isArray(matches)) && matchTypes && numberOfMatches) {
+      console.log('🎯 Creating matches array from config:', { matchTypes, numberOfMatches, setsPerMatch })
       const numSets = (setsPerMatch || 2) + 1 // Total sets (best of)
       matches = Array.from({ length: numberOfMatches }, (_, i) => ({
         matchNumber: i + 1,
@@ -31,10 +45,12 @@ async function updateMatchScore(
         homePlayerIds: [],
         awayPlayerIds: [],
       }))
+      console.log('✅ Created matches array:', matches)
     }
     
     if (matches && Array.isArray(matches)) {
       const numSets = (setsPerMatch || setsToWin || 2) + 1 // Total sets (best of)
+      console.log('✨ Creating NEW team match structure with numSets:', numSets)
       score = {
         matches: matches.map((m: any) => ({
           matchNumber: m.matchNumber,
@@ -50,7 +66,9 @@ async function updateMatchScore(
         servingTeam: servingTeam || "home",
         pointsToWin: pointsToWinPerSet || 11,
       }
+      console.log('✅ Created score structure:', JSON.stringify(score, null, 2))
     } else {
+      console.log('⚠️ Falling back to OLD sets structure')
       // Fallback for old structure
       score = matchData.score ? (typeof matchData.score === 'string' ? JSON.parse(matchData.score) : matchData.score) : {}
       
@@ -72,10 +90,12 @@ async function updateMatchScore(
       }
     }
     
+    console.log('💾 Saving score to database:', JSON.stringify(score, null, 2))
     await query(
       "UPDATE matches SET score = $1 WHERE id = $2",
       [JSON.stringify(score), matchId]
     )
+    console.log('✅ Score saved successfully to database')
   }
 }
 
@@ -172,16 +192,48 @@ export async function POST(
       setTypes,
     } = body
 
-    // Check if config already exists
+    // Check if config already exists and fetch full config
     const existingConfigResult = await query(
-      `SELECT id, config_completed FROM table_tennis_match_config WHERE match_id = $1`,
+      `SELECT * FROM table_tennis_match_config WHERE match_id = $1`,
       [id]
     )
     
     // query() returns an array directly
     const hasExistingConfig = existingConfigResult && Array.isArray(existingConfigResult) && existingConfigResult.length > 0
+    const existingConfig = hasExistingConfig ? existingConfigResult[0] : null
+
+    console.log('📋 Config check:', { hasExistingConfig, existingConfig })
 
     if (hasExistingConfig) {
+      console.log('📋 Existing config found:', existingConfig)
+
+      // Parse existing match_types if stored as string
+      let existingMatchTypes = existingConfig.match_types
+      if (typeof existingMatchTypes === 'string') {
+        try {
+          existingMatchTypes = JSON.parse(existingMatchTypes)
+        } catch (e) {
+          existingMatchTypes = null
+        }
+      }
+
+      // Use existing config values if not provided in request
+      const finalNumberOfMatches = numberOfMatches || existingConfig.number_of_matches
+      const finalSetsPerMatch = setsPerMatch || existingConfig.sets_per_match
+      const finalPointsToWinPerSet = pointsToWinPerSet || existingConfig.points_to_win_per_set
+      const finalMatchTypes = matchTypes || existingMatchTypes
+      const finalSetsToWin = setsToWin || existingConfig.sets_to_win
+
+      console.log('🔧 Final values to use:', {
+        finalNumberOfMatches,
+        finalSetsPerMatch,
+        finalPointsToWinPerSet,
+        finalMatchTypes,
+        finalSetsToWin,
+        servingTeam,
+        configCompleted
+      })
+
       // Update existing config
       const updateResult = await query(
         `UPDATE table_tennis_match_config 
@@ -200,11 +252,11 @@ export async function POST(
          WHERE match_id = $11
          RETURNING *`,
         [
-          setsToWin || setsPerMatch || null,
-          pointsToWinPerSet || null,
-          numberOfMatches || null,
-          setsPerMatch || setsToWin || null,
-          matchTypes ? JSON.stringify(matchTypes) : (setTypes ? JSON.stringify(setTypes) : null),
+          finalSetsToWin || finalSetsPerMatch || null,
+          finalPointsToWinPerSet || null,
+          finalNumberOfMatches || null,
+          finalSetsPerMatch || finalSetsToWin || null,
+          finalMatchTypes ? JSON.stringify(finalMatchTypes) : (setTypes ? JSON.stringify(setTypes) : null),
           tossWinnerTeamId || null,
           tossDecision || null,
           selectedTableSide || null,
@@ -222,8 +274,19 @@ export async function POST(
         )
       }
 
-      // Update match score with new structure
-      await updateMatchScore(id, matches, servingTeam, pointsToWinPerSet, setsToWin || setsPerMatch, setTypes, configCompleted, matchTypes, numberOfMatches, setsPerMatch)
+      // Update match score with new structure using final values
+      await updateMatchScore(
+        id, 
+        matches, 
+        servingTeam, 
+        finalPointsToWinPerSet, 
+        finalSetsToWin || finalSetsPerMatch, 
+        setTypes, 
+        configCompleted, 
+        finalMatchTypes, 
+        finalNumberOfMatches, 
+        finalSetsPerMatch
+      )
 
       return NextResponse.json({ config: updateResult[0] }, { status: 200 })
     } else {

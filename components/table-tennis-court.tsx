@@ -64,43 +64,90 @@ export default function TableTennisCourt({
 
   return (
     <div className="w-full mb-8">
-      <div className="relative w-full max-w-3xl mx-auto h-[320px] bg-blue-700 rounded-lg p-4 overflow-hidden">
-        {/* Match indicator for team structure */}
-        {hasTeamMatchStructure && matches[currentMatch] && (
-          <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white text-blue-700 px-4 py-1.5 rounded-full font-bold text-sm z-30 shadow-lg">
-            Match {currentMatch + 1} of 3 - Set {currentSetInMatch + 1}
+      <div className="relative w-full max-w-4xl mx-auto">
+        {/* Team names outside the court with border styling */}
+        <div className="flex justify-between items-center mb-4 px-8">
+          <div className="relative">
+            <div className="bg-red-600 text-white font-bold px-6 py-3 rounded-lg shadow-lg border-4 border-white text-lg">
+              {homeTeam.name}
+            </div>
           </div>
-        )}
-        
-        {/* Table outline */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[75%] h-[85%] bg-blue-500 rounded-lg border-4 border-white">
-          {/* Net (Black) */}
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-full bg-black z-20 flex items-center justify-center">
-            <div className="absolute w-[95%] h-[6px] bg-black"></div>
+          <div className="relative">
+            <div className="bg-yellow-500 text-blue-900 font-bold px-6 py-3 rounded-lg shadow-lg border-4 border-white text-lg">
+              {awayTeam.name}
+            </div>
           </div>
+        </div>
 
-          {/* Center line for doubles - vertical white line */}
-          {isDoubles && (
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[3px] h-full bg-white"></div>
+        <div className="relative w-full h-[400px] bg-gradient-to-b from-slate-700 to-slate-900 rounded-xl p-8 shadow-2xl">
+          {/* Match indicator for team structure */}
+          {hasTeamMatchStructure && matches[currentMatch] && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white text-blue-700 px-4 py-1.5 rounded-full font-bold text-sm z-30 shadow-lg">
+              Match {currentMatch + 1} of 3 - Set {currentSetInMatch + 1}
+            </div>
           )}
+          
+          {/* Table outline - Official dark blue/green surface */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[80%] h-[70%] bg-[#1a4d2e] rounded border-[6px] border-white shadow-2xl">
+            {/* Net (Black with white tape on top) */}
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-full bg-black z-20">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-1.5 bg-white"></div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-1.5 bg-white"></div>
+            </div>
 
-          {/* Side lines - edge lines */}
-          <div className="absolute top-0 left-0 w-full h-full border-4 border-white rounded-lg"></div>
+            {/* Center line (white line down the middle) */}
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[2px] h-full bg-white/40 z-10"></div>
 
-          {/* End lines already covered by border */}
-
-          {/* Home side (left) */}
-          <div className="absolute top-0 left-0 w-1/2 h-full">
-            {currentIsDoubles ? (
-              <>
-                {/* Player 1 */}
-                <div className="absolute top-[30%] left-[25%] transform -translate-x-1/2 -translate-y-1/2">
+            {/* Home side (left) */}
+            <div className="absolute top-0 left-0 w-1/2 h-full">
+              {currentIsDoubles ? (
+                <>
+                  {/* Player 1 */}
+                  <div className="absolute top-[30%] left-[30%] transform -translate-x-1/2 -translate-y-1/2">
+                    <div
+                      className={`w-14 h-14 rounded-full flex items-center justify-center 
+                      ${servingPlayer === "home" ? "bg-red-600 ring-4 ring-yellow-400" : "bg-red-600"}`}
+                    >
+                      <div className="text-center text-white">
+                        <div className="font-bold text-lg">
+                          {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[0]
+                            ? getPlayerNumberById(matches[currentMatch].homePlayerIds[0])
+                            : getPlayerNumber(homeTeam, 0)}
+                        </div>
+                        <div className="text-[10px]">
+                          {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[0]
+                            ? getPlayerNameById(matches[currentMatch].homePlayerIds[0])
+                            : getPlayerName(homeTeam, 0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Player 2 */}
+                  <div className="absolute top-[70%] left-[30%] transform -translate-x-1/2 -translate-y-1/2">
+                    <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center">
+                      <div className="text-center text-white">
+                        <div className="font-bold text-lg">
+                          {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[1]
+                            ? getPlayerNumberById(matches[currentMatch].homePlayerIds[1])
+                            : getPlayerNumber(homeTeam, 1)}
+                        </div>
+                        <div className="text-[10px]">
+                          {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[1]
+                            ? getPlayerNameById(matches[currentMatch].homePlayerIds[1])
+                            : getPlayerName(homeTeam, 1)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute top-1/2 left-[30%] transform -translate-x-1/2 -translate-y-1/2">
                   <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center 
+                    className={`w-16 h-16 rounded-full flex items-center justify-center 
                     ${servingPlayer === "home" ? "bg-red-600 ring-4 ring-yellow-400" : "bg-red-600"}`}
                   >
                     <div className="text-center text-white">
-                      <div className="font-bold text-lg">
+                      <div className="font-bold text-xl">
                         {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[0]
                           ? getPlayerNumberById(matches[currentMatch].homePlayerIds[0])
                           : getPlayerNumber(homeTeam, 0)}
@@ -113,59 +160,59 @@ export default function TableTennisCourt({
                     </div>
                   </div>
                 </div>
-                {/* Player 2 */}
-                <div className="absolute top-[70%] left-[25%] transform -translate-x-1/2 -translate-y-1/2">
-                  <div className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <div className="font-bold text-lg">
-                        {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[1]
-                          ? getPlayerNumberById(matches[currentMatch].homePlayerIds[1])
-                          : getPlayerNumber(homeTeam, 1)}
-                      </div>
-                      <div className="text-xs">
-                        {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[1]
-                          ? getPlayerNameById(matches[currentMatch].homePlayerIds[1])
-                          : getPlayerName(homeTeam, 1)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="absolute top-1/2 left-[25%] transform -translate-x-1/2 -translate-y-1/2">
-                <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center 
-                  ${servingPlayer === "home" ? "bg-red-600 ring-4 ring-yellow-400" : "bg-red-600"}`}
-                >
-                  <div className="text-center text-white">
-                    <div className="font-bold text-xl">
-                      {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[0]
-                        ? getPlayerNumberById(matches[currentMatch].homePlayerIds[0])
-                        : getPlayerNumber(homeTeam, 0)}
-                    </div>
-                    <div className="text-xs">
-                      {hasTeamMatchStructure && matches[currentMatch]?.homePlayerIds[0]
-                        ? getPlayerNameById(matches[currentMatch].homePlayerIds[0])
-                        : getPlayerName(homeTeam, 0)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Away side (right) */}
-          <div className="absolute top-0 right-0 w-1/2 h-full">
-            {currentIsDoubles ? (
-              <>
-                {/* Player 1 */}
-                <div className="absolute top-[30%] right-[25%] transform translate-x-1/2 -translate-y-1/2">
+            {/* Away side (right) */}
+            <div className="absolute top-0 right-0 w-1/2 h-full">
+              {currentIsDoubles ? (
+                <>
+                  {/* Player 1 */}
+                  <div className="absolute top-[30%] right-[30%] transform translate-x-1/2 -translate-y-1/2">
+                    <div
+                      className={`w-14 h-14 rounded-full flex items-center justify-center 
+                      ${servingPlayer === "away" ? "bg-yellow-500 ring-4 ring-yellow-400" : "bg-yellow-500"}`}
+                    >
+                      <div className="text-center text-blue-900">
+                        <div className="font-bold text-lg">
+                          {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[0]
+                            ? getPlayerNumberById(matches[currentMatch].awayPlayerIds[0])
+                            : getPlayerNumber(awayTeam, 0)}
+                        </div>
+                        <div className="text-[10px]">
+                          {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[0]
+                            ? getPlayerNameById(matches[currentMatch].awayPlayerIds[0])
+                            : getPlayerName(awayTeam, 0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Player 2 */}
+                  <div className="absolute top-[70%] right-[30%] transform translate-x-1/2 -translate-y-1/2">
+                    <div className="w-14 h-14 rounded-full bg-yellow-500 flex items-center justify-center">
+                      <div className="text-center text-blue-900">
+                        <div className="font-bold text-lg">
+                          {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[1]
+                            ? getPlayerNumberById(matches[currentMatch].awayPlayerIds[1])
+                            : getPlayerNumber(awayTeam, 1)}
+                        </div>
+                        <div className="text-[10px]">
+                          {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[1]
+                            ? getPlayerNameById(matches[currentMatch].awayPlayerIds[1])
+                            : getPlayerName(awayTeam, 1)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute top-1/2 right-[30%] transform translate-x-1/2 -translate-y-1/2">
                   <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center 
-                    ${servingPlayer === "away" ? "bg-blue-600 ring-4 ring-yellow-400" : "bg-blue-600"}`}
+                    className={`w-16 h-16 rounded-full flex items-center justify-center 
+                    ${servingPlayer === "away" ? "bg-yellow-500 ring-4 ring-yellow-400" : "bg-yellow-500"}`}
                   >
-                    <div className="text-center text-white">
-                      <div className="font-bold text-lg">
+                    <div className="text-center text-blue-900">
+                      <div className="font-bold text-xl">
                         {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[0]
                           ? getPlayerNumberById(matches[currentMatch].awayPlayerIds[0])
                           : getPlayerNumber(awayTeam, 0)}
@@ -178,80 +225,41 @@ export default function TableTennisCourt({
                     </div>
                   </div>
                 </div>
-                {/* Player 2 */}
-                <div className="absolute top-[70%] right-[25%] transform translate-x-1/2 -translate-y-1/2">
-                  <div className="w-14 h-14 rounded-full bg-blue-600 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <div className="font-bold text-lg">
-                        {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[1]
-                          ? getPlayerNumberById(matches[currentMatch].awayPlayerIds[1])
-                          : getPlayerNumber(awayTeam, 1)}
-                      </div>
-                      <div className="text-xs">
-                        {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[1]
-                          ? getPlayerNameById(matches[currentMatch].awayPlayerIds[1])
-                          : getPlayerName(awayTeam, 1)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="absolute top-1/2 right-[25%] transform translate-x-1/2 -translate-y-1/2">
-                <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center 
-                  ${servingPlayer === "away" ? "bg-blue-600 ring-4 ring-yellow-400" : "bg-blue-600"}`}
-                >
-                  <div className="text-center text-white">
-                    <div className="font-bold text-xl">
-                      {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[0]
-                        ? getPlayerNumberById(matches[currentMatch].awayPlayerIds[0])
-                        : getPlayerNumber(awayTeam, 0)}
-                    </div>
-                    <div className="text-xs">
-                      {hasTeamMatchStructure && matches[currentMatch]?.awayPlayerIds[0]
-                        ? getPlayerNameById(matches[currentMatch].awayPlayerIds[0])
-                        : getPlayerName(awayTeam, 0)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Ping pong ball */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg"></div>
           </div>
 
-          {/* Ping pong ball */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md"></div>
+          {/* Score display */}
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-8 py-3 rounded-full font-bold flex items-center gap-4 text-2xl shadow-xl z-30">
+            <span className={servingPlayer === "home" ? "text-yellow-400" : ""}>{currentScore.home}</span>
+            <span className="text-gray-400">-</span>
+            <span className={servingPlayer === "away" ? "text-yellow-400" : ""}>{currentScore.away}</span>
+          </div>
+
+          {/* Set indicator */}
+          {!hasTeamMatchStructure && (
+            <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white text-blue-700 px-4 py-1.5 rounded-full font-bold text-sm shadow-lg z-30">
+              Set {currentSet + 1}
+            </div>
+          )}
+
+          {/* Match type indicator */}
+          <div className="absolute bottom-6 right-6 bg-white/90 text-blue-700 px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+            {currentIsDoubles ? "Doubles" : "Singles"}
+          </div>
         </div>
 
-        {/* Score display */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-6 py-2 rounded-full font-bold flex items-center gap-4">
-          <span className={servingPlayer === "home" ? "text-yellow-400" : ""}>{currentScore.home}</span>
-          <span>-</span>
-          <span className={servingPlayer === "away" ? "text-yellow-400" : ""}>{currentScore.away}</span>
+        {/* Set scores */}
+        <div className="flex justify-center gap-2 mt-4">
+          {sets.map((set, index) => (
+            <Badge key={index} className={`${index === currentSet ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"} px-4 py-1 text-base font-bold`}>
+              {set.home}-{set.away}
+            </Badge>
+          ))}
         </div>
-
-        {/* Team names */}
-        <div className="absolute top-2 left-4 text-white font-bold">{homeTeam.name}</div>
-        <div className="absolute top-2 right-4 text-white font-bold">{awayTeam.name}</div>
-
-        {/* Set indicator */}
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-white text-blue-700 px-3 py-1 rounded-full font-bold text-sm">
-          Set {currentSet + 1}
-        </div>
-
-        {/* Match type indicator */}
-        <div className="absolute bottom-4 right-4 bg-white bg-opacity-70 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
-          {isDoubles ? "Doubles" : "Singles"}
-        </div>
-      </div>
-
-      {/* Set scores */}
-      <div className="flex justify-center gap-2 mt-2">
-        {sets.map((set, index) => (
-          <Badge key={index} className={`${index === currentSet ? "bg-blue-500 text-white" : "bg-gray-100"} px-3`}>
-            {set.home}-{set.away}
-          </Badge>
-        ))}
       </div>
     </div>
   )

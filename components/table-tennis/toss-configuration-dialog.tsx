@@ -41,6 +41,7 @@ export function TossConfigurationDialog({
   const [tableSideChoice, setTableSideChoice] = useState<"home" | "away" | "">("")
   const [oppositeTeamSideChoice, setOppositeTeamSideChoice] = useState<"home" | "away" | "">("")
   const [matches, setMatches] = useState<MatchAssignment[]>([])
+  const [setsPerMatch, setSetsPerMatch] = useState<number>(3)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
@@ -58,6 +59,8 @@ export function TossConfigurationDialog({
         if (data.config && data.config.numberOfMatches) {
           const numMatches = data.config.numberOfMatches
           const types = data.config.matchTypes || Array(numMatches).fill("singles")
+          const setsPerMatchValue = data.config.setsPerMatch || 3
+          setSetsPerMatch(setsPerMatchValue)
           
           // Initialize matches array with configured types (read-only display)
           const initialMatches: MatchAssignment[] = []
@@ -364,9 +367,14 @@ export function TossConfigurationDialog({
               {matches.map((match) => (
                 <div key={match.matchNumber} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                   <span className="font-medium">Match {match.matchNumber}</span>
-                  <Badge variant="outline" className="px-3 py-1">
-                    {match.type === "singles" ? "Singles" : "Doubles"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="px-3 py-1">
+                      {match.type === "singles" ? "Singles" : "Doubles"}
+                    </Badge>
+                    <Badge variant="secondary" className="px-3 py-1 bg-green-200 text-green-800">
+                      {setsPerMatch} set{setsPerMatch !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </div>
