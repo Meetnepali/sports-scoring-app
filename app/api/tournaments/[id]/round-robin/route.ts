@@ -222,18 +222,30 @@ export async function POST(
       // 7. Save badminton configuration if provided
       if (sport === "badminton" && badmintonConfig) {
         try {
+          // Use new schema if available, fallback to legacy
+          const numberOfMatches = badmintonConfig.numberOfMatches || 3
+          const setsPerMatch = badmintonConfig.setsPerMatch || badmintonConfig.gamesToWin || 2
+          const pointsToWinPerSet = badmintonConfig.pointsToWinPerSet || badmintonConfig.pointsToWinPerGame || 21
+          const matchTypes = badmintonConfig.matchTypes || null
+          
           await query(
             `INSERT INTO badminton_match_config 
-             (match_id, games_to_win, points_to_win_per_game, config_completed)
-             VALUES ($1, $2, $3, $4)
+             (match_id, games_to_win, points_to_win_per_game, number_of_matches, sets_per_match, match_types, config_completed)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (match_id) DO UPDATE SET
-               games_to_win = EXCLUDED.games_to_win,
-               points_to_win_per_game = EXCLUDED.points_to_win_per_game,
+               games_to_win = COALESCE(EXCLUDED.games_to_win, badminton_match_config.games_to_win),
+               points_to_win_per_game = COALESCE(EXCLUDED.points_to_win_per_game, badminton_match_config.points_to_win_per_game),
+               number_of_matches = COALESCE(EXCLUDED.number_of_matches, badminton_match_config.number_of_matches),
+               sets_per_match = COALESCE(EXCLUDED.sets_per_match, badminton_match_config.sets_per_match),
+               match_types = COALESCE(EXCLUDED.match_types, badminton_match_config.match_types),
                updated_at = CURRENT_TIMESTAMP`,
             [
               match.id,
-              badmintonConfig.gamesToWin,
-              badmintonConfig.pointsToWinPerGame,
+              setsPerMatch, // games_to_win for legacy compatibility
+              pointsToWinPerSet, // points_to_win_per_game for legacy compatibility
+              numberOfMatches,
+              setsPerMatch,
+              matchTypes ? JSON.stringify(matchTypes) : null,
               false // config_completed will be true after toss
             ]
           )
@@ -246,18 +258,30 @@ export async function POST(
       // 8. Save table tennis configuration if provided
       if (sport === "table-tennis" && tableTennisConfig) {
         try {
+          // Use new schema if available, fallback to legacy
+          const numberOfMatches = tableTennisConfig.numberOfMatches || 3
+          const setsPerMatch = tableTennisConfig.setsPerMatch || tableTennisConfig.setsToWin || 2
+          const pointsToWinPerSet = tableTennisConfig.pointsToWinPerSet || 11
+          const matchTypes = tableTennisConfig.matchTypes || null
+          
           await query(
             `INSERT INTO table_tennis_match_config 
-             (match_id, sets_to_win, points_to_win_per_set, config_completed)
-             VALUES ($1, $2, $3, $4)
+             (match_id, sets_to_win, points_to_win_per_set, number_of_matches, sets_per_match, match_types, config_completed)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (match_id) DO UPDATE SET
-               sets_to_win = EXCLUDED.sets_to_win,
-               points_to_win_per_set = EXCLUDED.points_to_win_per_set,
+               sets_to_win = COALESCE(EXCLUDED.sets_to_win, table_tennis_match_config.sets_to_win),
+               points_to_win_per_set = COALESCE(EXCLUDED.points_to_win_per_set, table_tennis_match_config.points_to_win_per_set),
+               number_of_matches = COALESCE(EXCLUDED.number_of_matches, table_tennis_match_config.number_of_matches),
+               sets_per_match = COALESCE(EXCLUDED.sets_per_match, table_tennis_match_config.sets_per_match),
+               match_types = COALESCE(EXCLUDED.match_types, table_tennis_match_config.match_types),
                updated_at = CURRENT_TIMESTAMP`,
             [
               match.id,
-              tableTennisConfig.setsToWin,
-              tableTennisConfig.pointsToWinPerSet,
+              setsPerMatch, // sets_to_win for legacy compatibility
+              pointsToWinPerSet,
+              numberOfMatches,
+              setsPerMatch,
+              matchTypes ? JSON.stringify(matchTypes) : null,
               false // config_completed will be true after toss
             ]
           )

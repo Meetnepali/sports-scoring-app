@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
       publicRoutes.includes(pathname) || 
       publicApiRoutes.includes(pathname) ||
       pathname.startsWith("/_next/") ||
+      pathname.startsWith("/.well-known/") ||
       pathname.includes("favicon.ico")) {
     return NextResponse.next()
   }

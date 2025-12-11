@@ -10,7 +10,10 @@ async function updateMatchScore(
   pointsToWinPerSet: number,
   setsToWin: number,
   setTypes: any,
-  configCompleted: boolean
+  configCompleted: boolean,
+  matchTypes?: string[],
+  numberOfMatches?: number,
+  setsPerMatch?: number
 ) {
   const matchResult = await query("SELECT score FROM matches WHERE id = $1", [matchId])
   
@@ -19,18 +22,26 @@ async function updateMatchScore(
     let score: any
     
     // Initialize new team-based match structure
+    // If matches array not provided but we have matchTypes from config, initialize from config
+    if ((!matches || !Array.isArray(matches)) && matchTypes && numberOfMatches) {
+      const numSets = (setsPerMatch || 2) + 1 // Total sets (best of)
+      matches = Array.from({ length: numberOfMatches }, (_, i) => ({
+        matchNumber: i + 1,
+        type: matchTypes[i] || "singles",
+        homePlayerIds: [],
+        awayPlayerIds: [],
+      }))
+    }
+    
     if (matches && Array.isArray(matches)) {
+      const numSets = (setsPerMatch || setsToWin || 2) + 1 // Total sets (best of)
       score = {
         matches: matches.map((m: any) => ({
           matchNumber: m.matchNumber,
           type: m.type,
-          homePlayerIds: m.homePlayerIds,
-          awayPlayerIds: m.awayPlayerIds,
-          sets: [
-            { home: 0, away: 0 },
-            { home: 0, away: 0 },
-            { home: 0, away: 0 },
-          ],
+          homePlayerIds: m.homePlayerIds || [],
+          awayPlayerIds: m.awayPlayerIds || [],
+          sets: Array.from({ length: numSets }, () => ({ home: 0, away: 0 })),
           winner: null,
         })),
         currentMatch: 0,
@@ -212,7 +223,7 @@ export async function POST(
       }
 
       // Update match score with new structure
-      await updateMatchScore(id, matches, servingTeam, pointsToWinPerSet, setsToWin, setTypes, configCompleted)
+      await updateMatchScore(id, matches, servingTeam, pointsToWinPerSet, setsToWin || setsPerMatch, setTypes, configCompleted, matchTypes, numberOfMatches, setsPerMatch)
 
       return NextResponse.json({ config: updateResult[0] }, { status: 200 })
     } else {
@@ -259,7 +270,7 @@ export async function POST(
       }
 
       // Update match score with new structure
-      await updateMatchScore(id, matches, servingTeam, pointsToWinPerSet, setsToWin, setTypes, configCompleted)
+      await updateMatchScore(id, matches, servingTeam, pointsToWinPerSet, setsToWin || setsPerMatch, setTypes, configCompleted, matchTypes, numberOfMatches, setsPerMatch)
 
       return NextResponse.json({ config: insertResult[0] }, { status: 201 })
     }

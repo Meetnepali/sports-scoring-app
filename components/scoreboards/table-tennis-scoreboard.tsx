@@ -109,9 +109,39 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
           }
           
           // Initialize sets and points configuration from config if available
-          if (data.config.setsToWin || data.config.pointsToWinPerSet) {
+          if (data.config.setsToWin || data.config.pointsToWinPerSet || data.config.numberOfMatches) {
             setScore((prev: any) => {
-              const setsToWin = data.config.setsToWin || prev.setsToWin || 2
+              // Use new structure if numberOfMatches is available
+              if (data.config.numberOfMatches && data.config.matchTypes) {
+                const numMatches = data.config.numberOfMatches
+                const matchTypes = data.config.matchTypes
+                const setsPerMatch = data.config.setsPerMatch || 2
+                const pointsToWin = data.config.pointsToWinPerSet || 11
+                
+                // Initialize matches array with types from config
+                const matches = Array.from({ length: numMatches }, (_, i) => {
+                  const existingMatch = prev.matches && prev.matches[i] ? prev.matches[i] : null
+                  return {
+                    matchNumber: i + 1,
+                    type: matchTypes[i] || "singles",
+                    sets: existingMatch?.sets || Array.from({ length: setsPerMatch + 1 }, () => ({ home: 0, away: 0 })),
+                    winner: existingMatch?.winner || null,
+                    homePlayerIds: existingMatch?.homePlayerIds || [],
+                    awayPlayerIds: existingMatch?.awayPlayerIds || [],
+                  }
+                })
+                
+                return {
+                  ...prev,
+                  matches,
+                  currentMatch: prev.currentMatch || 0,
+                  matchWins: prev.matchWins || { home: 0, away: 0 },
+                  pointsToWin,
+                }
+              }
+              
+              // Legacy structure
+              const setsToWin = data.config.setsToWin || data.config.setsPerMatch || prev.setsToWin || 2
               const pointsToWin = data.config.pointsToWinPerSet || prev.pointsToWin || 11
               const totalSets = setsToWin === 2 ? 3 : setsToWin === 3 ? 5 : 7
               // Ensure we have the correct number of sets
@@ -119,11 +149,19 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
               if (sets.length !== totalSets) {
                 sets = Array.from({ length: totalSets }, (_, i) => sets[i] || { home: 0, away: 0, type: "singles" })
               }
-              // Ensure all sets have type field
-              sets = sets.map((set: any) => ({
-                ...set,
-                type: set.type || "singles"
-              }))
+              // Use match types from config if available (for legacy structure)
+              if (data.config.matchTypes && data.config.matchTypes.length === totalSets) {
+                sets = sets.map((set: any, i: number) => ({
+                  ...set,
+                  type: data.config.matchTypes[i] || set.type || "singles"
+                }))
+              } else {
+                // Ensure all sets have type field
+                sets = sets.map((set: any) => ({
+                  ...set,
+                  type: set.type || "singles"
+                }))
+              }
               return {
                 ...prev,
                 sets,

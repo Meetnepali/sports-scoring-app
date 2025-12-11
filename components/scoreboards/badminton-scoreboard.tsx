@@ -107,21 +107,59 @@ export default function BadmintonScoreboard({ match }: BadmintonScoreboardProps)
           }
           
           // Initialize games and points configuration from config if available
-          if (data.config.gamesToWin || data.config.pointsToWinPerGame) {
+          if (data.config.gamesToWin || data.config.pointsToWinPerGame || data.config.numberOfMatches) {
             setScore((prev: any) => {
-              const gamesToWin = data.config.gamesToWin || prev.gamesToWin || 2
-              const pointsToWin = data.config.pointsToWinPerGame || prev.pointsToWin || 21
+              // Use new structure if numberOfMatches is available
+              if (data.config.numberOfMatches && data.config.matchTypes) {
+                const numMatches = data.config.numberOfMatches
+                const matchTypes = data.config.matchTypes
+                const setsPerMatch = data.config.setsPerMatch || 2
+                const pointsToWin = data.config.pointsToWinPerSet || data.config.pointsToWinPerGame || 21
+                
+                // Initialize matches array with types from config
+                const matches = Array.from({ length: numMatches }, (_, i) => {
+                  const existingMatch = prev.matches && prev.matches[i] ? prev.matches[i] : null
+                  return {
+                    matchNumber: i + 1,
+                    type: matchTypes[i] || "singles",
+                    sets: existingMatch?.sets || Array.from({ length: setsPerMatch + 1 }, () => ({ home: 0, away: 0 })),
+                    winner: existingMatch?.winner || null,
+                    homePlayerIds: existingMatch?.homePlayerIds || [],
+                    awayPlayerIds: existingMatch?.awayPlayerIds || [],
+                  }
+                })
+                
+                return {
+                  ...prev,
+                  matches,
+                  currentMatch: prev.currentMatch || 0,
+                  matchWins: prev.matchWins || { home: 0, away: 0 },
+                  pointsToWin,
+                }
+              }
+              
+              // Legacy structure
+              const gamesToWin = data.config.gamesToWin || data.config.setsPerMatch || prev.gamesToWin || 2
+              const pointsToWin = data.config.pointsToWinPerSet || data.config.pointsToWinPerGame || prev.pointsToWin || 21
               const totalGames = gamesToWin === 2 ? 3 : 5
               // Ensure we have the correct number of games
               let games = prev.games || []
               if (games.length !== totalGames) {
                 games = Array.from({ length: totalGames }, (_, i) => games[i] || { home: 0, away: 0, type: "singles" })
               }
-              // Ensure all games have type field
-              games = games.map((game: any) => ({
-                ...game,
-                type: game.type || "singles"
-              }))
+              // Use match types from config if available (for legacy structure)
+              if (data.config.matchTypes && data.config.matchTypes.length === totalGames) {
+                games = games.map((game: any, i: number) => ({
+                  ...game,
+                  type: data.config.matchTypes[i] || game.type || "singles"
+                }))
+              } else {
+                // Ensure all games have type field
+                games = games.map((game: any) => ({
+                  ...game,
+                  type: game.type || "singles"
+                }))
+              }
               return {
                 ...prev,
                 games,

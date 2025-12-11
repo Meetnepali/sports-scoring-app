@@ -181,7 +181,7 @@ export default function CreateTournamentMatchPage({ params }: { params: { id: st
                 </Button>
                 <Button
                   onClick={createMatch}
-                  disabled={!team1 || !team2 || !date || !venue || isCreating}
+                  disabled={!team1 || !team2 || !matchDateTime || !venue || isCreating}
                   className="relative"
                 >
                   {isCreating ? (

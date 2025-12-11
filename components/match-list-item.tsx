@@ -2,9 +2,10 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Match } from "@/lib/static-data"
 import { cn } from "@/lib/utils"
-import { useMemo, useState, type MouseEvent } from "react"
+import { useMemo, useState, useEffect, type MouseEvent } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Trash2 } from "lucide-react"
 import {
@@ -168,12 +169,60 @@ function getLiveScore(match: Match): { home: string | number; away: string | num
   }
 }
 
-export function MatchListItem({ match, status, starting, onStartMatch, onDelete }: MatchListItemProps) {
+export function MatchListItem({ match: initialMatch, status, starting, onStartMatch, onDelete }: MatchListItemProps) {
+  const router = useRouter()
   const { isAdmin } = useAuth()
+  const [match, setMatch] = useState<ExtendedMatch>(initialMatch)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState<number>(0)
   const formattedDate = useMemo(() => formatMatchDate(match.date), [match.date])
   const formattedTime = useMemo(() => formatMatchTime(match.date), [match.date])
+
+  // Set up EventSource for real-time score updates (only for live matches)
+  useEffect(() => {
+    if (!match || (match.status !== "live" && status !== "live")) return
+
+    const eventSource = new EventSource(`/api/stream/match/${match.id}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const updateData = JSON.parse(event.data)
+        const { matchId, score, status: newStatus, version } = updateData
+
+        // Only update if version is newer
+        setCurrentVersion((prevVersion) => {
+          if (version > prevVersion) {
+            setMatch((prevMatch) => {
+              if (!prevMatch) return prevMatch
+              return {
+                ...prevMatch,
+                score: score,
+                status: newStatus as "scheduled" | "started" | "live" | "completed",
+              }
+            })
+            return version
+          }
+          return prevVersion
+        })
+      } catch (error) {
+        console.error("Error parsing SSE message:", error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error)
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [match?.id, match?.status, status])
+
+  // Update match if initialMatch changes
+  useEffect(() => {
+    setMatch(initialMatch)
+  }, [initialMatch.id, initialMatch.status])
 
   const homeLogo = getTeamLogo(match.homeTeam.logo)
   const awayLogo = getTeamLogo(match.awayTeam.logo)
@@ -300,12 +349,18 @@ export function MatchListItem({ match, status, starting, onStartMatch, onDelete 
               </button>
             )}
 
-            <Link
-              href={`/matches/${match.id}`}
+            <button
+              type="button"
+              onClick={() => {
+                const matchId = initialMatch.id || match.id
+                if (matchId) {
+                  router.push(`/matches/${matchId}`)
+                }
+              }}
               className="rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-800 transition group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white"
             >
               {status === "completed" ? "View Score" : status === "live" ? "Open Score" : "View Score"}
-            </Link>
+            </button>
           </div>
         </div>
       </div>

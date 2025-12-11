@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import type { Match } from "@/lib/static-data"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
@@ -8,7 +11,54 @@ interface MatchCardProps {
   match: Match
 }
 
-export default function MatchCard({ match }: MatchCardProps) {
+export default function MatchCard({ match: initialMatch }: MatchCardProps) {
+  const [match, setMatch] = useState<Match>(initialMatch)
+  const [currentVersion, setCurrentVersion] = useState<number>(0)
+
+  // Set up EventSource for real-time score updates (only for live matches)
+  useEffect(() => {
+    if (!match || match.status !== "live") return
+
+    const eventSource = new EventSource(`/api/stream/match/${match.id}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const updateData = JSON.parse(event.data)
+        const { matchId, score, status, version } = updateData
+
+        // Only update if version is newer
+        setCurrentVersion((prevVersion) => {
+          if (version > prevVersion) {
+            setMatch((prevMatch) => {
+              if (!prevMatch) return prevMatch
+              return {
+                ...prevMatch,
+                score: score,
+                status: status as "scheduled" | "started" | "live" | "completed",
+              }
+            })
+            return version
+          }
+          return prevVersion
+        })
+      } catch (error) {
+        console.error("Error parsing SSE message:", error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error)
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [match?.id, match?.status])
+
+  // Update match if initialMatch changes
+  useEffect(() => {
+    setMatch(initialMatch)
+  }, [initialMatch.id, initialMatch.status])
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", {
@@ -69,7 +119,7 @@ export default function MatchCard({ match }: MatchCardProps) {
   }
 
   return (
-    <Link href={`/matches/${match.id}`}>
+    <Link href={`/matches/${initialMatch.id || match.id}`}>
       <Card className="h-full card-hover overflow-hidden animate-scale-in">
         <div className={`h-2 w-full ${match.status === "live" ? "bg-destructive" : "bg-primary"}`}></div>
         <CardContent className="pt-6">

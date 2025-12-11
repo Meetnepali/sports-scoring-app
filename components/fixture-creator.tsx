@@ -67,11 +67,13 @@ export function FixtureCreator({
   const [badmintonNumberOfMatches, setBadmintonNumberOfMatches] = useState<"3" | "5" | "7">("3")
   const [badmintonSetsPerMatch, setBadmintonSetsPerMatch] = useState<"2" | "3">("2")
   const [badmintonPointsToWin, setBadmintonPointsToWin] = useState<"11" | "15" | "21">("21")
+  const [badmintonMatchTypes, setBadmintonMatchTypes] = useState<Array<"singles" | "doubles">>(["singles", "singles", "singles"])
   
   // Table Tennis-specific configuration
   const [tableTennisNumberOfMatches, setTableTennisNumberOfMatches] = useState<"3" | "5" | "7">("3")
   const [tableTennisSetsPerMatch, setTableTennisSetsPerMatch] = useState<"2" | "3" | "4">("2")
   const [tableTennisPointsToWin, setTableTennisPointsToWin] = useState<"11" | "21">("11")
+  const [tableTennisMatchTypes, setTableTennisMatchTypes] = useState<Array<"singles" | "doubles">>(["singles", "singles", "singles"])
 
   useEffect(() => {
     // Load fixtures on mount or when groupId changes
@@ -85,6 +87,23 @@ export function FixtureCreator({
     }
     loadFixtures()
   }, [groupId])
+
+  // Update match types array when number of matches changes
+  useEffect(() => {
+    const numMatches = parseInt(badmintonNumberOfMatches)
+    if (badmintonMatchTypes.length !== numMatches) {
+      setBadmintonMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [badmintonNumberOfMatches])
+
+  useEffect(() => {
+    const numMatches = parseInt(tableTennisNumberOfMatches)
+    if (tableTennisMatchTypes.length !== numMatches) {
+      setTableTennisMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableTennisNumberOfMatches])
 
   const handleCreateFixture = async () => {
     setError(null)
@@ -218,11 +237,15 @@ export function FixtureCreator({
       } else if (sport === "volleyball") {
         setVolleyballNumberOfSets("5")
       } else if (sport === "badminton") {
-        setBadmintonGamesToWin("2")
+        setBadmintonNumberOfMatches("3")
+        setBadmintonSetsPerMatch("2")
         setBadmintonPointsToWin("21")
+        setBadmintonMatchTypes(["singles", "singles", "singles"])
       } else if (sport === "table-tennis") {
-        setTableTennisSetsToWin("2")
+        setTableTennisNumberOfMatches("3")
+        setTableTennisSetsPerMatch("2")
         setTableTennisPointsToWin("11")
+        setTableTennisMatchTypes(["singles", "singles", "singles"])
       }
       
       // Refresh fixtures
@@ -316,7 +339,8 @@ export function FixtureCreator({
         requestBody.badmintonConfig = {
           numberOfMatches: parseInt(badmintonNumberOfMatches),
           setsPerMatch: parseInt(badmintonSetsPerMatch),
-          pointsToWinPerSet: parseInt(badmintonPointsToWin)
+          pointsToWinPerSet: parseInt(badmintonPointsToWin),
+          matchTypes: badmintonMatchTypes
         }
       }
       
@@ -325,7 +349,8 @@ export function FixtureCreator({
         requestBody.tableTennisConfig = {
           numberOfMatches: parseInt(tableTennisNumberOfMatches),
           setsPerMatch: parseInt(tableTennisSetsPerMatch),
-          pointsToWinPerSet: parseInt(tableTennisPointsToWin)
+          pointsToWinPerSet: parseInt(tableTennisPointsToWin),
+          matchTypes: tableTennisMatchTypes
         }
       }
       
@@ -618,6 +643,35 @@ export function FixtureCreator({
               <p className="text-xs text-yellow-700">
                 All {badmintonNumberOfMatches} matches will be played. Each match: {badmintonSetsPerMatch === "2" ? "3" : "5"} sets (first to {badmintonSetsPerMatch} wins). Each set: first to {badmintonPointsToWin} points, win by 2.
               </p>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Match Types Configuration *</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  {badmintonMatchTypes.map((matchType, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                      <span className="font-medium min-w-[80px]">Match {index + 1}:</span>
+                      <Select
+                        value={matchType}
+                        onValueChange={(val) => {
+                          const newTypes = [...badmintonMatchTypes]
+                          newTypes[index] = val as "singles" | "doubles"
+                          setBadmintonMatchTypes(newTypes)
+                        }}
+                      >
+                        <SelectTrigger className="h-10 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="singles">Singles</SelectItem>
+                          <SelectItem value="doubles">Doubles</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-yellow-700">
+                  Configure whether each match will be played as singles or doubles. All sets within a match will use the same type.
+                </p>
+              </div>
               <p className="text-xs text-yellow-600">
                 Note: Toss for serve/court side will be conducted when the match starts for the first time.
               </p>
@@ -673,6 +727,35 @@ export function FixtureCreator({
               <p className="text-xs text-green-700">
                 All {tableTennisNumberOfMatches} matches will be played. Each match: {tableTennisSetsPerMatch === "2" ? "3" : tableTennisSetsPerMatch === "3" ? "5" : "7"} sets (first to {tableTennisSetsPerMatch} wins). Each set: first to {tableTennisPointsToWin} points, win by 2.
               </p>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Match Types Configuration *</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  {tableTennisMatchTypes.map((matchType, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
+                      <span className="font-medium min-w-[80px]">Match {index + 1}:</span>
+                      <Select
+                        value={matchType}
+                        onValueChange={(val) => {
+                          const newTypes = [...tableTennisMatchTypes]
+                          newTypes[index] = val as "singles" | "doubles"
+                          setTableTennisMatchTypes(newTypes)
+                        }}
+                      >
+                        <SelectTrigger className="h-10 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="singles">Singles</SelectItem>
+                          <SelectItem value="doubles">Doubles</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-green-700">
+                  Configure whether each match will be played as singles or doubles. All sets within a match will use the same type.
+                </p>
+              </div>
               <p className="text-xs text-green-600">
                 Note: Toss for serve/table side will be conducted when the match starts for the first time.
               </p>

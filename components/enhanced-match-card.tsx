@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Match } from "@/lib/static-data"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -31,7 +32,55 @@ const sportGlows: Record<string, string> = {
   badminton: "shadow-pink-400/20",
 }
 
-export function EnhancedMatchCard({ match, index = 0 }: EnhancedMatchCardProps) {
+export function EnhancedMatchCard({ match: initialMatch, index = 0 }: EnhancedMatchCardProps) {
+  const [match, setMatch] = useState<Match>(initialMatch)
+  const [currentVersion, setCurrentVersion] = useState<number>(0)
+
+  // Set up EventSource for real-time score updates (only for live matches)
+  useEffect(() => {
+    if (!match || match.status !== "live") return
+
+    const eventSource = new EventSource(`/api/stream/match/${match.id}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const updateData = JSON.parse(event.data)
+        const { matchId, score, status, version } = updateData
+
+        // Only update if version is newer
+        setCurrentVersion((prevVersion) => {
+          if (version > prevVersion) {
+            setMatch((prevMatch) => {
+              if (!prevMatch) return prevMatch
+              return {
+                ...prevMatch,
+                score: score,
+                status: status as "scheduled" | "started" | "live" | "completed",
+              }
+            })
+            return version
+          }
+          return prevVersion
+        })
+      } catch (error) {
+        console.error("Error parsing SSE message:", error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error("EventSource error:", error)
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [match?.id, match?.status])
+
+  // Update match if initialMatch changes
+  useEffect(() => {
+    setMatch(initialMatch)
+  }, [initialMatch.id, initialMatch.status])
+
   const isLive = match.status === "live"
   const isCompleted = match.status === "completed"
   const sportColor = sportColors[match.sport] || "from-blue-500 to-indigo-500"
@@ -95,7 +144,7 @@ export function EnhancedMatchCard({ match, index = 0 }: EnhancedMatchCardProps) 
       transition={{ duration: 0.4, delay: index * 0.1 }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
-      <Link href={`/matches/${match.id}`}>
+      <Link href={`/matches/${initialMatch.id || match.id}`}>
         <Card className={`glass angular-card overflow-hidden transition-all duration-300 hover:shadow-2xl ${sportGlow} border-2 ${isLive ? 'energy-border animate-energy-pulse' : 'border-border/50'} group cursor-pointer`}>
           {/* Status Badge */}
           <div className="absolute top-3 right-3 z-10 flex items-center gap-2">

@@ -24,27 +24,13 @@ export default function CreateMatchPage() {
   const { toast } = useToast()
   const { isAdmin, loading: authLoading } = useAuth()
 
-  useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      router.push("/?error=access_denied&message=You do not have permission to access this page. Admin access required.")
-    }
-  }, [isAdmin, authLoading, router])
-
-  if (authLoading) {
-    return <LoadingSpinner />
-  }
-
-  if (!isAdmin) {
-    return null
-  }
-
-  // Get query parameters
+  // Get query parameters (before hooks)
   const sportParam = searchParams.get("sport") || ""
   const team1Id = searchParams.get("team1") || ""
   const team2Id = searchParams.get("team2") || ""
   const tournamentName = searchParams.get("tournament") || ""
 
-  // State for form fields
+  // State for form fields - ALL HOOKS MUST BE BEFORE EARLY RETURNS
   const [selectedSport, setSelectedSport] = useState(sportParam)
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([])
@@ -77,8 +63,17 @@ export default function CreateMatchPage() {
   // Chess-specific configuration
   const [chessNumberOfGames, setChessNumberOfGames] = useState("1")
 
+  // Auth redirect effect
+  useEffect(() => {
+    if (!authLoading && !isAdmin) {
+      router.push("/?error=access_denied&message=You do not have permission to access this page. Admin access required.")
+    }
+  }, [isAdmin, authLoading, router])
+
   // Fetch all teams from database
   useEffect(() => {
+    if (!isAdmin || authLoading) return
+    
     async function fetchTeams() {
       try {
         setLoading(true)
@@ -103,36 +98,51 @@ export default function CreateMatchPage() {
       }
     }
     fetchTeams()
-  }, [selectedSport, toast])
+  }, [selectedSport, toast, isAdmin, authLoading])
 
   // Update filtered teams when sport changes
   useEffect(() => {
+    if (!isAdmin || authLoading) return
+    
     if (selectedSport && allTeams.length > 0) {
       setFilteredTeams(allTeams.filter(team => team.sport === selectedSport))
     } else {
       setFilteredTeams(allTeams)
     }
-  }, [selectedSport, allTeams])
+  }, [selectedSport, allTeams, isAdmin, authLoading])
 
   // Calculate and initialize match types when Table Tennis number of matches changes
   useEffect(() => {
+    if (!isAdmin || authLoading) return
+    
     if (selectedSport === "table-tennis") {
       const numMatches = parseInt(tableTennisNumberOfMatches)
       if (tableTennisMatchTypes.length !== numMatches) {
         setTableTennisMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
       }
     }
-  }, [selectedSport, tableTennisNumberOfMatches])
+  }, [selectedSport, tableTennisNumberOfMatches, isAdmin, authLoading])
 
   // Calculate and initialize match types when Badminton number of matches changes
   useEffect(() => {
+    if (!isAdmin || authLoading) return
+    
     if (selectedSport === "badminton") {
       const numMatches = parseInt(badmintonNumberOfMatches)
       if (badmintonMatchTypes.length !== numMatches) {
         setBadmintonMatchTypes(Array(numMatches).fill("singles" as "singles" | "doubles"))
       }
     }
-  }, [selectedSport, badmintonNumberOfMatches])
+  }, [selectedSport, badmintonNumberOfMatches, isAdmin, authLoading])
+
+  // Early returns AFTER all hooks
+  if (authLoading) {
+    return <LoadingSpinner />
+  }
+
+  if (!isAdmin) {
+    return null
+  }
 
   const sportNames: Record<string, string> = {
     cricket: "Cricket",
@@ -852,7 +862,7 @@ export default function CreateMatchPage() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={!selectedSport || !venue || !date || !homeTeam || !awayTeam || submitting || filteredTeams.length < 2}
+                  disabled={!selectedSport || !venue || !matchDateTime || !homeTeam || !awayTeam || submitting || filteredTeams.length < 2}
                   className="px-8"
                 >
                   {submitting ? (
