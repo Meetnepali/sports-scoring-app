@@ -19,8 +19,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check authentication for protected routes
-  if (!token) {
+  // Check authentication for protected routes (validate token format: 64 hex chars)
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

@@ -12,6 +12,7 @@ import { updateMatchScore } from "@/lib/client-api"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { TossConfigurationDialog } from "@/components/futsal/toss-configuration-dialog"
+import FutsalPitch from "@/components/futsal-pitch"
 
 interface FutsalScoreboardProps {
   match: Match
@@ -171,20 +172,23 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
 
   const updateScore = (team: "home" | "away", amount: number) => {
     setScore((prevScore: any) => {
+      const isPenalties = prevScore.period === "Penalties"
+      const scoreKey = isPenalties ? (team === "home" ? "penaltyHome" : "penaltyAway") : team
+
       // Ensure current score is a number
-      const currentScore = Number(prevScore[team]) || 0
+      const currentScore = Number(prevScore[scoreKey]) || 0
       if (currentScore + amount < 0) return prevScore
 
       const newScore = { ...prevScore }
-      newScore[team] = currentScore + amount
+      newScore[scoreKey] = currentScore + amount
 
       // Ensure goals array exists
       if (!Array.isArray(newScore.goals)) {
         newScore.goals = []
       }
 
-      // Add a goal to the goals array if increasing
-      if (amount > 0) {
+      // Add a goal to the goals array if increasing (skip for penalties)
+      if (amount > 0 && !isPenalties) {
         const teamId = team === "home" ? match.homeTeam.id : match.awayTeam.id
         const players = team === "home" ? match.homeTeam.players : match.awayTeam.players
         const playerId = players.length > 0 ? players[0].id : "unknown"
@@ -197,7 +201,7 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
             time: newScore.time,
           },
         ]
-      } else if (amount < 0 && newScore.goals.length > 0) {
+      } else if (amount < 0 && !isPenalties && newScore.goals.length > 0) {
         // Remove the last goal for this team if decreasing
         const teamId = team === "home" ? match.homeTeam.id : match.awayTeam.id
         const lastGoalIndex = [...newScore.goals].reverse().findIndex((g) => g.team === teamId)
@@ -230,11 +234,15 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
 
     const completeMatch = async (winnerTeam: "home" | "away" | "draw") => {
       const winnerId = winnerTeam === "home" ? match.homeTeam.id : winnerTeam === "away" ? match.awayTeam.id : null
-      const finalScore = {
-        home: homeScore,
-        away: awayScore,
+      const finalScore: any = {
+        home: score.period === "Penalties" ? (score.regulationHome ?? homeScore) : homeScore,
+        away: score.period === "Penalties" ? (score.regulationAway ?? awayScore) : awayScore,
         period: score.period,
         goals: score.goals,
+      }
+      if (score.period === "Penalties") {
+        finalScore.penaltyHome = Number(score.penaltyHome) || 0
+        finalScore.penaltyAway = Number(score.penaltyAway) || 0
       }
 
       try {
@@ -276,10 +284,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
     }
 
     if (score.period === "Penalties") {
-      // In penalties, just determine winner
-      if (homeScore > awayScore) {
+      // In penalties, determine winner by penalty scores
+      const penHome = Number(score.penaltyHome) || 0
+      const penAway = Number(score.penaltyAway) || 0
+      if (penHome > penAway) {
         await completeMatch("home")
-      } else if (awayScore > homeScore) {
+      } else if (penAway > penHome) {
         await completeMatch("away")
       }
     } else if (score.period === "Extra Time") {
@@ -287,11 +297,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
       if (homeScore === awayScore) {
         const goToPenalties = confirm(`Match is still tied ${homeScore}-${awayScore} after Extra Time. Go to Penalties?`)
         if (goToPenalties) {
-          updatePeriod("Penalties")
           setScore((prev: any) => ({
             ...prev,
-            home: 0,
-            away: 0,
+            regulationHome: prev.home,
+            regulationAway: prev.away,
+            penaltyHome: 0,
+            penaltyAway: 0,
             period: "Penalties",
           }))
         }
@@ -338,8 +349,8 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
   if (match.status === "scheduled") {
     return (
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="text-2xl">Futsal Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">⚽ Futsal Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-8 text-center">
           <p className="text-gray-600 text-lg">Match is scheduled. Start the match to begin configuration.</p>
@@ -352,8 +363,8 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
   if (isAdmin && (match.status === "started" || match.status === "live") && futsalConfig && !futsalConfig.configCompleted && !showTossDialog) {
     return (
       <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="text-2xl">Futsal Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">⚽ Futsal Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-8 text-center space-y-4">
           <h3 className="text-xl font-bold mb-2">Toss Required</h3>
@@ -403,15 +414,35 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
         </div>
       </CardHeader>
       <CardContent className="pt-6">
-        <Tabs defaultValue="scorecard" className="w-full">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
+        <Tabs defaultValue="board" className="w-full">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} rounded-lg bg-slate-100/70 p-1 h-auto`}>
+            <TabsTrigger value="board" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Board</TabsTrigger>
+            <TabsTrigger value="scorecard" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Scorecard</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="controls" disabled={!isLive}>
+              <TabsTrigger value="controls" disabled={!isLive} className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 Controls
               </TabsTrigger>
             )}
           </TabsList>
+
+          <TabsContent value="board">
+            <FutsalPitch
+              homeTeam={{ name: match.homeTeam.name }}
+              awayTeam={{ name: match.awayTeam.name }}
+              score={{ home: Number(score.home) || 0, away: Number(score.away) || 0 }}
+              period={score.period}
+              goals={
+                Array.isArray(score.goals)
+                  ? score.goals.map((g: any) => ({
+                      team: getTeamName(g.team),
+                      player: getPlayerName(g.player),
+                      time: g.time,
+                      minute: g.minute,
+                    }))
+                  : []
+              }
+            />
+          </TabsContent>
 
           <TabsContent value="scorecard">
             <div className="space-y-6">
@@ -427,7 +458,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
                     <h3 className="font-semibold">{match.homeTeam.name}</h3>
-                    <div className="text-5xl font-bold my-4">{score.home}</div>
+                    <div className="text-5xl font-bold my-4">
+                      {score.period === "Penalties" ? (score.regulationHome ?? score.home) : score.home}
+                    </div>
+                    {score.period === "Penalties" && (
+                      <div className="text-sm text-gray-500">Pen: {score.penaltyHome ?? 0}</div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-center">
@@ -436,7 +472,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
 
                   <div className="text-center">
                     <h3 className="font-semibold">{match.awayTeam.name}</h3>
-                    <div className="text-5xl font-bold my-4">{score.away}</div>
+                    <div className="text-5xl font-bold my-4">
+                      {score.period === "Penalties" ? (score.regulationAway ?? score.away) : score.away}
+                    </div>
+                    {score.period === "Penalties" && (
+                      <div className="text-sm text-gray-500">Pen: {score.penaltyAway ?? 0}</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -467,7 +508,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-4 text-center">{match.homeTeam.name}</h3>
-                  <div className="text-center text-4xl font-bold mb-4">{score.home}</div>
+                  <div className="text-center text-4xl font-bold mb-4">
+                    {score.period === "Penalties" ? (score.penaltyHome ?? 0) : score.home}
+                  </div>
+                  {score.period === "Penalties" && (
+                    <div className="text-center text-sm text-gray-500 mb-2">Regulation: {score.regulationHome ?? score.home}</div>
+                  )}
                   <div className="flex justify-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => updateScore("home", -1)}>
                       <MinusCircle className="h-4 w-4" />
@@ -480,7 +526,12 @@ export default function FutsalScoreboard({ match }: FutsalScoreboardProps) {
 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-4 text-center">{match.awayTeam.name}</h3>
-                  <div className="text-center text-4xl font-bold mb-4">{score.away}</div>
+                  <div className="text-center text-4xl font-bold mb-4">
+                    {score.period === "Penalties" ? (score.penaltyAway ?? 0) : score.away}
+                  </div>
+                  {score.period === "Penalties" && (
+                    <div className="text-center text-sm text-gray-500 mb-2">Regulation: {score.regulationAway ?? score.away}</div>
+                  )}
                   <div className="flex justify-center gap-4">
                     <Button variant="outline" size="icon" onClick={() => updateScore("away", -1)}>
                       <MinusCircle className="h-4 w-4" />

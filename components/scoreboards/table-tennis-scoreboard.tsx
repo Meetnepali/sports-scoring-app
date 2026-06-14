@@ -565,8 +565,8 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   if (match.status === "scheduled") {
     return (
       <Card className="shadow-lg border-t-4 border-t-green-600">
-        <CardHeader className="bg-gray-50">
-          <CardTitle className="text-center text-xl md:text-2xl">Table Tennis Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">🏓 Table Tennis Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-8 text-center">
           <p className="text-gray-600 text-lg">Match is scheduled. Start the match to begin configuration.</p>
@@ -579,8 +579,8 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
   if ((match.status === "started" || match.status === "live") && tableTennisConfig && !tableTennisConfig.configCompleted && !showTossDialog) {
     return (
       <Card className="shadow-lg border-t-4 border-t-green-600">
-        <CardHeader className="bg-gray-50">
-          <CardTitle className="text-center text-xl md:text-2xl">Table Tennis Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">🏓 Table Tennis Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-8 text-center space-y-4">
           <h3 className="text-xl font-bold mb-2">Toss Required</h3>
@@ -616,11 +616,11 @@ export default function TableTennisScoreboard({ match }: TableTennisScoreboardPr
       </CardHeader>
       <CardContent className="p-0">
         <Tabs defaultValue="court" className="w-full">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} rounded-none`}>
-            <TabsTrigger value="court">Court</TabsTrigger>
-            <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} rounded-lg bg-slate-100/70 p-1 h-auto`}>
+            <TabsTrigger value="court" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Court</TabsTrigger>
+            <TabsTrigger value="scorecard" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Scorecard</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="controls" disabled={!canScore || matchWinner !== null}>
+              <TabsTrigger value="controls" disabled={!canScore || matchWinner !== null} className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 Controls
               </TabsTrigger>
             )}

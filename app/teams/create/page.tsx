@@ -862,7 +862,7 @@ export default function CreateTeamPage() {
               <div className="flex flex-col gap-2">
                 <CardTitle className="text-2xl">{isEditMode ? "Edit Team" : "Create New Team"}</CardTitle>
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Sparkles className="h-4 w-4 text-primary" />
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
                   Rosters sync with existing user profiles so analytics stay reliable.
                 </p>
               </div>
@@ -1067,7 +1067,7 @@ export default function CreateTeamPage() {
                       <h3 className="text-lg font-semibold">
                         Players ({selectedPlayersCount} selected)
                       </h3>
-                      <Button variant="outline" onClick={addPlayer} className="flex items-center" disabled={allUsersSelected}>
+                      <Button variant="outline" onClick={addPlayer} className="flex items-center rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50" disabled={allUsersSelected}>
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Add Player from Existing
                       </Button>
@@ -1085,7 +1085,7 @@ export default function CreateTeamPage() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="p-4 border rounded-lg bg-card"
+                          className="p-4 border border-slate-200 rounded-2xl bg-white"
                         >
                           <div className="flex items-center mb-3">
                             {player.profilePhoto ? (
@@ -1097,8 +1097,8 @@ export default function CreateTeamPage() {
                                 className="rounded-full object-cover mr-3"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-3">
-                                <User className="h-5 w-5 text-primary" />
+                              <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center mr-3">
+                                <User className="h-5 w-5 text-emerald-600" />
                               </div>
                             )}
                             <div className="font-medium">
@@ -1297,7 +1297,7 @@ export default function CreateTeamPage() {
                         disabled={
                           selectedPlayersCount === 0 || isCreating || !teamName || !sport
                         }
-                        className="relative"
+                        className="relative bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                       >
                         {isCreating ? (
                           <>

@@ -396,7 +396,7 @@ export default function CreateTournamentPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl flex items-center">
-              <Trophy className="h-6 w-6 text-primary mr-2" />
+              <Trophy className="h-6 w-6 text-emerald-600 mr-2" />
               Create Tournament
             </CardTitle>
           </CardHeader>
@@ -408,7 +408,7 @@ export default function CreateTournamentPage() {
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                       step >= s
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-emerald-600 text-white"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
@@ -417,7 +417,7 @@ export default function CreateTournamentPage() {
                   {s < 4 && (
                     <div
                       className={`flex-1 h-1 mx-2 ${
-                        step > s ? "bg-primary" : "bg-muted"
+                        step > s ? "bg-emerald-600" : "bg-muted"
                       }`}
                     />
                   )}
@@ -507,17 +507,17 @@ export default function CreateTournamentPage() {
                         whileHover={!isDisabled ? { scale: 1.02 } : {}}
                         className={`p-4 border-2 rounded-lg transition-all ${
                           isSelected
-                            ? "border-primary bg-primary/10 cursor-pointer"
+                            ? "border-emerald-500 bg-emerald-600/10 cursor-pointer"
                             : isDisabled
                             ? "border-muted bg-muted/30 cursor-not-allowed opacity-50"
-                            : "hover:border-primary/50 cursor-pointer"
+                            : "hover:border-emerald-500/50 cursor-pointer"
                         }`}
                         onClick={() => !isDisabled && handleAddSport(sport.id)}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{sport.name}</span>
                           {isSelected && (
-                            <Badge className="bg-primary">Selected</Badge>
+                            <Badge className="bg-emerald-600">Selected</Badge>
                           )}
                         </div>
                       </motion.div>
@@ -606,8 +606,8 @@ export default function CreateTournamentPage() {
 
                 {/* Group Selector */}
                 {currentGroups.length > 0 && (
-                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
-                    <Users className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border-2 border-emerald-500/20">
+                    <Users className="h-5 w-5 text-emerald-600" />
                     <div className="flex-1">
                       <Label className="text-sm font-medium">Select Group to Add Teams</Label>
                       <Select value={selectedGroupForAdd} onValueChange={setSelectedGroupForAdd}>
@@ -634,7 +634,7 @@ export default function CreateTournamentPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold flex items-center gap-2">
-                        <Users className="h-5 w-5 text-primary" />
+                        <Users className="h-5 w-5 text-emerald-600" />
                         Tournament Groups
                       </h4>
                       <div className="flex gap-2">
@@ -672,7 +672,7 @@ export default function CreateTournamentPage() {
                             <Card 
                               key={group.id} 
                               className={`p-4 transition-all border-2 ${
-                                isSelected ? "border-primary bg-primary/5" : "border-transparent"
+                                isSelected ? "border-emerald-500 bg-emerald-600/5" : "border-transparent"
                               }`}
                             >
                               <div className="flex items-center justify-between mb-3">
@@ -731,7 +731,7 @@ export default function CreateTournamentPage() {
                   {/* Right: Available Teams */}
                   <div className="space-y-4">
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Plus className="h-5 w-5 text-primary" />
+                      <Plus className="h-5 w-5 text-emerald-600" />
                       Available Teams
                     </h4>
                     {loadingTeams ? (
@@ -818,10 +818,10 @@ export default function CreateTournamentPage() {
 
                 {/* Bracket Format Selection */}
                 {currentSportIndex === selectedSports.length - 1 && (
-                  <Card className="border-primary/20 bg-primary/5">
+                  <Card className="border-emerald-500/20 bg-emerald-600/5">
                     <CardContent className="pt-6">
                       <div className="flex items-center gap-4">
-                        <Info className="h-5 w-5 text-primary" />
+                        <Info className="h-5 w-5 text-emerald-600" />
                         <div className="flex-1">
                           <Label className="text-sm font-medium mb-2 block">Select Bracket Format</Label>
                           <Select value={bracketFormat} onValueChange={setBracketFormat}>
@@ -949,7 +949,7 @@ export default function CreateTournamentPage() {
                                 <Card key={group.id}>
                                   <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                      <Trophy className="h-5 w-5 text-primary" />
+                                      <Trophy className="h-5 w-5 text-emerald-600" />
                                       {group.groupName}
                                       <Badge variant="secondary" className="ml-auto">
                                         {teams.length} teams

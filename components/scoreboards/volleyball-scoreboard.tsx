@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { PlusCircle, MinusCircle, UserPlus, Edit } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -552,8 +553,8 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
   if (match.status === "scheduled") {
     return (
       <Card className="shadow-lg border-t-4 border-t-blue-600">
-        <CardHeader className="bg-gray-50">
-          <CardTitle className="text-center text-xl md:text-2xl">Volleyball Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">🏐 Volleyball Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="text-center py-12 text-gray-500">
@@ -568,8 +569,8 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
   if ((match.status === "started" || match.status === "live") && volleyballConfig && !volleyballConfig.configCompleted && !showTossDialog) {
     return (
       <Card className="shadow-lg border-t-4 border-t-blue-600">
-        <CardHeader className="bg-gray-50">
-          <CardTitle className="text-center text-xl md:text-2xl">Volleyball Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">🏐 Volleyball Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-12 text-center">
           <div className="text-yellow-600 mb-4">⚠️</div>
@@ -594,10 +595,10 @@ export default function VolleyballScoreboard({ match }: VolleyballScoreboardProp
       </CardHeader>
       <CardContent className="p-0">
         <Tabs defaultValue="court" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 rounded-none">
-            <TabsTrigger value="court">Court</TabsTrigger>
-            <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
-            <TabsTrigger value="players" disabled={match.status !== "live"}>
+          <TabsList className="grid w-full grid-cols-3 rounded-lg bg-slate-100/70 p-1 h-auto">
+            <TabsTrigger value="court" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Court</TabsTrigger>
+            <TabsTrigger value="scorecard" className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">Scorecard</TabsTrigger>
+            <TabsTrigger value="players" disabled={match.status !== "live"} className="rounded-md py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
               Players
             </TabsTrigger>
           </TabsList>

@@ -22,27 +22,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const checkAuth = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("/api/auth/me")
-      if (response.ok) {
-        const data = await response.json()
-        setUser(data.user)
-      } else {
-        // Clear user if not authenticated
-        setUser(null)
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error)
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    const abortController = new AbortController()
+    const checkAuth = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch("/api/auth/me", { signal: abortController.signal })
+        if (response.ok) {
+          const data = await response.json()
+          setUser(data.user)
+        } else {
+          setUser(null)
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return
+        console.error("Auth check failed:", error)
+        setUser(null)
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
     checkAuth()
+    return () => abortController.abort()
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -88,9 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = async () => {
+    setUser(null)
     try {
       await fetch("/api/auth/logout", { method: "POST" })
-      setUser(null)
     } catch (error) {
       console.error("Logout failed:", error)
     }

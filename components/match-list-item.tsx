@@ -1,13 +1,11 @@
 "use client"
 
-import Image from "next/image"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Match } from "@/lib/static-data"
 import { cn } from "@/lib/utils"
 import { useMemo, useState, type MouseEvent } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { Trash2 } from "lucide-react"
+import { Trash2, ArrowRight } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,28 +34,10 @@ interface MatchListItemProps {
   onDelete?: (matchId: string) => Promise<void>
 }
 
-const placeholderLogo = "/placeholder-logo.png"
-
-const sportBadges: Record<string, string> = {
-  cricket: "/leagues/cricket-badge.svg",
-  volleyball: "/leagues/volleyball-badge.svg",
-  futsal: "/leagues/futsal-badge.svg",
-  chess: "/leagues/chess-badge.svg",
-  "table-tennis": "/leagues/table-tennis-badge.svg",
-  badminton: "/leagues/badminton-badge.svg",
-}
-
-const statusCopy: Record<MatchListItemProps["status"], string> = {
-  scheduled: "Scheduled",
-  live: "Live",
-  completed: "Completed",
-}
-
 function formatMatchDate(dateString: string) {
   const date = new Date(dateString)
-
   return date.toLocaleDateString("en-US", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
     month: "short",
   })
@@ -65,34 +45,37 @@ function formatMatchDate(dateString: string) {
 
 function formatMatchTime(dateString: string) {
   const date = new Date(dateString)
-
   return date.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
   })
 }
 
-function getTeamLogo(logo?: string | null) {
-  if (!logo || logo.trim() === "") {
-    return placeholderLogo
-  }
-
-  return logo
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 }
 
-function getTournamentBadge(match: ExtendedMatch) {
-  if (match.tournamentLogo) return match.tournamentLogo
-  if (match.tournament?.logo) return match.tournament.logo
-
-  const badgeFromSport = sportBadges[match.sport]
-  if (badgeFromSport) return badgeFromSport
-
-  return placeholderLogo
+const sportLabels: Record<string, string> = {
+  cricket: "Cricket",
+  volleyball: "Volleyball",
+  chess: "Chess",
+  futsal: "Futsal",
+  "table-tennis": "Table Tennis",
+  badminton: "Badminton",
 }
 
-
-
-export function MatchListItem({ match, status, starting, onStartMatch, onDelete }: MatchListItemProps) {
+export function MatchListItem({
+  match,
+  status,
+  starting,
+  onStartMatch,
+  onDelete,
+}: MatchListItemProps) {
   const router = useRouter()
   const { isAdmin } = useAuth()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -100,12 +83,9 @@ export function MatchListItem({ match, status, starting, onStartMatch, onDelete 
   const formattedDate = useMemo(() => formatMatchDate(match.date), [match.date])
   const formattedTime = useMemo(() => formatMatchTime(match.date), [match.date])
 
-  const homeLogo = getTeamLogo(match.homeTeam.logo)
-  const awayLogo = getTeamLogo(match.awayTeam.logo)
-  const tournamentBadge = getTournamentBadge(match)
-  const tournamentName = match.tournamentName || match.tournament?.name || match.sport
-
-  const statusLabel = statusCopy[status]
+  const sportLabel = sportLabels[match.sport] || match.sport
+  const homeInitials = getInitials(match.homeTeam.name)
+  const awayInitials = getInitials(match.awayTeam.name)
 
   const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -115,7 +95,6 @@ export function MatchListItem({ match, status, starting, onStartMatch, onDelete 
 
   const handleConfirmDelete = async () => {
     if (!onDelete) return
-    
     try {
       setDeleting(true)
       await onDelete(match.id)
@@ -130,116 +109,133 @@ export function MatchListItem({ match, status, starting, onStartMatch, onDelete 
   return (
     <article
       className={cn(
-        "group rounded-[1.8rem] border border-slate-200/80 bg-white/95 px-6 py-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-slate-300/80 min-h-[120px]",
-        status === "live" && "ring-1 ring-red-200/60",
-        status === "completed" && "opacity-95",
+        "group rounded-2xl border bg-white p-5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer",
+        status === "live"
+          ? "border-red-200 shadow-sm"
+          : "border-slate-200 shadow-sm hover:border-emerald-200"
       )}
+      onClick={() => router.push(`/matches/${match.id}`)}
     >
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:gap-8">
-        <div className="flex items-center gap-4 md:min-w-[180px]">
-          <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-            <Image
-              src={tournamentBadge}
-              alt={`${tournamentName} badge`}
-              fill
-              className="object-cover"
-              sizes="56px"
-              priority={status === "live"}
-            />
-          </div>
-          <div className="h-10 w-px bg-slate-200 mx-2" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-slate-900">{formattedDate}</span>
-            <span className="text-xs uppercase tracking-[0.2em] text-slate-400">{formattedTime}</span>
-          </div>
-        </div>
+      {/* Header: sport + status */}
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs font-semibold text-slate-500 capitalize">
+          {sportLabel}
+        </span>
+        {(status === "live" || match.status === "live") && (
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-red-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+            LIVE
+          </span>
+        )}
+        {match.status === "started" && status !== "live" && (
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Started
+          </span>
+        )}
+        {status === "completed" && (
+          <span className="text-[11px] font-semibold text-slate-400">
+            Completed
+          </span>
+        )}
+        {status === "scheduled" && match.status !== "started" && (
+          <span className="text-[11px] font-semibold text-emerald-500">
+            Upcoming
+          </span>
+        )}
+      </div>
 
-        <div className="flex flex-1 flex-col gap-4 text-slate-900 lg:flex-row lg:items-center lg:gap-6">
-          <TeamDisplay teamName={match.homeTeam.name} logo={homeLogo} />
-          <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 lg:w-16">
+      {/* Teams — stacked vertically */}
+      <div className="space-y-1.5 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+            <span className="text-[11px] font-bold text-slate-600">
+              {homeInitials}
+            </span>
+          </div>
+          <span className="text-sm font-semibold text-slate-900 truncate">
+            {match.homeTeam.name}
+          </span>
+        </div>
+        <div className="pl-12">
+          <span className="text-[10px] text-slate-300 font-medium uppercase tracking-wider">
             vs
-          </div>
-          <TeamDisplay teamName={match.awayTeam.name} logo={awayLogo} position="end" />
+          </span>
         </div>
-
-        <div className="flex items-center justify-between gap-3 md:w-auto md:justify-end">
-          {(status === "live" || match.status === "live") && (
-            <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-red-600">
-              <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(248,113,113,0.25)]" />
-              Live
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+            <span className="text-[11px] font-bold text-slate-600">
+              {awayInitials}
             </span>
-          )}
-          {match.status === "started" && (
-            <span className="flex items-center gap-2 rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-yellow-600">
-              <span className="h-2 w-2 rounded-full bg-yellow-500 shadow-[0_0_0_4px_rgba(251,191,36,0.25)]" />
-              Started
-            </span>
-          )}
-          {status === "completed" && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
-              Final
-            </span>
-          )}
-          {status === "scheduled" && (
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
-              Upcoming
-            </span>
-          )}
-
-          <div className="flex items-center gap-3">
-            {status === "scheduled" && onStartMatch && isAdmin && (
-              <button
-                type="button"
-                onClick={(event) => onStartMatch(match.id, event)}
-                className="rounded-full bg-black px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
-                disabled={starting}
-              >
-                {starting ? "Starting…" : "Start Match"}
-              </button>
-            )}
-
-            {isAdmin && onDelete && (
-              <button
-                type="button"
-                onClick={handleDeleteClick}
-                className="rounded-full border border-red-200 bg-red-50 p-2 text-red-600 transition hover:bg-red-100 hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={deleting || match.status === "live" || match.status === "started"}
-                title={match.status === "live" || match.status === "started" ? "Cannot delete live or started matches" : "Delete match"}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                router.push(`/matches/${match.id}`)
-              }}
-              className="rounded-full border border-slate-200 bg-white px-6 py-2 text-sm font-semibold text-slate-800 transition group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white"
-            >
-              {status === "completed" ? "View Score" : status === "live" ? "Open Score" : "View Score"}
-            </button>
           </div>
+          <span className="text-sm font-semibold text-slate-900 truncate">
+            {match.awayTeam.name}
+          </span>
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Footer: date + actions */}
+      <div
+        className="flex items-center justify-between pt-3 border-t border-slate-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="text-xs text-slate-400">
+          {formattedDate} · {formattedTime}
+        </span>
+        <div className="flex items-center gap-2">
+          {status === "scheduled" && onStartMatch && isAdmin && (
+            <button
+              type="button"
+              onClick={(event) => onStartMatch(match.id, event)}
+              className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400"
+              disabled={starting}
+            >
+              {starting ? "Starting…" : "Start"}
+            </button>
+          )}
+
+          {isAdmin && onDelete && (
+            <button
+              type="button"
+              onClick={handleDeleteClick}
+              className="rounded-lg p-1.5 text-slate-300 transition hover:text-red-500 disabled:opacity-40"
+              disabled={
+                deleting ||
+                match.status === "live" ||
+                match.status === "started"
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          <span className="text-[11px] font-semibold text-emerald-600 group-hover:text-emerald-700 flex items-center gap-1 cursor-pointer" onClick={() => router.push(`/matches/${match.id}`)}>
+            View
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </div>
+      </div>
+
+      {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Match?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this match between <strong>{match.homeTeam.name}</strong> and <strong>{match.awayTeam.name}</strong>?
-              <br /><br />
-              This action cannot be undone. All match data including scores, statistics, and related records will be permanently deleted.
+              Are you sure you want to delete this match between{" "}
+              <strong>{match.homeTeam.name}</strong> and{" "}
+              <strong>{match.awayTeam.name}</strong>? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} className="rounded-xl">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
               {deleting ? "Deleting..." : "Delete Match"}
             </AlertDialogAction>
@@ -249,28 +245,3 @@ export function MatchListItem({ match, status, starting, onStartMatch, onDelete 
     </article>
   )
 }
-
-interface TeamDisplayProps {
-  teamName: string
-  logo: string
-  position?: "start" | "end"
-}
-
-function TeamDisplay({ teamName, logo, position = "start" }: TeamDisplayProps) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3",
-        position === "end" && "lg:flex-row-reverse lg:text-right",
-      )}
-    >
-      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full border border-slate-200 bg-white shadow-sm">
-        <Image src={logo} alt={`${teamName} logo`} fill className="object-cover" sizes="48px" />
-      </div>
-      <div className="flex flex-col">
-        <span className="text-sm font-semibold text-slate-900">{teamName}</span>
-      </div>
-    </div>
-  )
-}
-

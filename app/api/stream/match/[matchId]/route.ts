@@ -23,7 +23,13 @@ export async function GET(
         // Send initial connection message
         const sendMessage = (data: string) => {
           if (!isClosed) {
-            controller.enqueue(encoder.encode(data))
+            try {
+              controller.enqueue(encoder.encode(data))
+            } catch (e) {
+              isClosed = true
+              if (keepAliveInterval) clearInterval(keepAliveInterval)
+              if (unsubscribe) unsubscribe()
+            }
           }
         }
 
@@ -45,7 +51,11 @@ export async function GET(
           })
         } catch (error) {
           console.error("Error subscribing to score updates:", error)
-          sendMessage(`event: error\ndata: ${JSON.stringify({ error: "Failed to subscribe to updates" })}\n\n`)
+          isClosed = true
+          if (keepAliveInterval) clearInterval(keepAliveInterval)
+          try {
+            controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ error: "Failed to subscribe to updates" })}\n\n`))
+          } catch (e) { /* controller may already be closed */ }
           controller.close()
           return
         }

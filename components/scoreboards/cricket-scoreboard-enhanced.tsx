@@ -97,7 +97,7 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   const [bowlerStats, setBowlerStats] = useState<BowlerStats>({})
   const [matchCompleted, setMatchCompleted] = useState(false)
   const [showManOfMatch, setShowManOfMatch] = useState(false)
-  const [currentOverBalls, setCurrentOverBalls] = useState<Array<{display: string, isWicket?: boolean}>>([]) // Track ball-by-ball in current over
+  const [currentOverBalls, setCurrentOverBalls] = useState<Array<{display: string, isWicket?: boolean, isBoundary?: boolean}>>([]) // Track ball-by-ball in current over
   const [showExtraDialog, setShowExtraDialog] = useState<"wides" | "noBalls" | "byes" | "legByes" | null>(null) // For extra runs selection
 
   // Determine batting and bowling teams
@@ -843,8 +843,8 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   if (match.status === "scheduled") {
     return (
       <Card className="shadow-lg">
-        <CardHeader className="bg-muted">
-          <CardTitle className="text-center text-xl">Cricket Scoreboard</CardTitle>
+        <CardHeader className="bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-t-lg">
+          <CardTitle className="text-center text-xl md:text-2xl flex items-center justify-center gap-2">🏏 Cricket Scoreboard</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -933,9 +933,9 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
   return (
     <>
     <Tabs defaultValue="scoring" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-6">
-        <TabsTrigger value="scoring">Live Scoring</TabsTrigger>
-        <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2 mb-6 rounded-lg bg-slate-100/70 p-1 h-auto">
+        <TabsTrigger value="scoring" className="rounded-md py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm font-semibold">Live Scoring</TabsTrigger>
+        <TabsTrigger value="scorecard" className="rounded-md py-2.5 data-[state=active]:bg-white data-[state=active]:shadow-sm font-semibold">Scorecard</TabsTrigger>
       </TabsList>
 
       <TabsContent value="scoring">
@@ -1061,24 +1061,30 @@ export default function CricketScoreboardEnhanced({ match }: CricketScoreboardPr
                 )}
               </div>
               <div className="flex gap-2 justify-center mt-3">
-                {getCurrentOverBalls().map((ball, i) => (
-                  <div
-                    key={i}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${
-                      ball.current
-                        ? "bg-blue-500 text-white animate-pulse"
-                        : ball.isWicket
-                        ? "bg-red-600 text-white"
-                        : ball.isBoundary
-                        ? "bg-purple-600 text-white"
-                        : ball.bowled
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-400"
-                    }`}
-                  >
-                    {ball.bowled ? ball.display : i + 1}
-                  </div>
-                ))}
+                {getCurrentOverBalls().map((ball, i) => {
+                  let ballColor = "bg-slate-200 text-slate-400 border border-slate-200"
+                  if (ball.current) {
+                    ballColor = "bg-blue-500 text-white shadow-lg shadow-blue-500/30 animate-pulse"
+                  } else if (ball.isWicket) {
+                    ballColor = "bg-red-500 text-white shadow-md shadow-red-500/30 ring-2 ring-red-300"
+                  } else if (ball.bowled && ball.display === "6") {
+                    ballColor = "bg-purple-600 text-white shadow-md shadow-purple-500/30"
+                  } else if (ball.bowled && ball.display === "4") {
+                    ballColor = "bg-green-500 text-white shadow-md shadow-green-500/30"
+                  } else if (ball.bowled && ball.display === "0") {
+                    ballColor = "bg-slate-400 text-white"
+                  } else if (ball.bowled) {
+                    ballColor = "bg-sky-500 text-white"
+                  }
+                  return (
+                    <div
+                      key={i}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${ballColor}`}
+                    >
+                      {ball.bowled ? ball.display : i + 1}
+                    </div>
+                  )
+                })}
               </div>
             </div>
 

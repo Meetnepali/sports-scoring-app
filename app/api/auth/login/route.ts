@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUserByEmailFromDB } from "@/lib/server-data"
-import { createSession } from "@/lib/auth"
-import { query } from "@/lib/db" // Declare the query variable
+import { createSession, verifyPassword } from "@/lib/auth"
+import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,9 +18,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    // Check password (plain text comparison)
+    // Verify password against stored hash
     const userWithPassword = await query(`SELECT password FROM users WHERE email = $1`, [email])
-    if (userWithPassword.length === 0 || userWithPassword[0].password !== password) {
+    if (userWithPassword.length === 0) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+    const isValidPassword = await verifyPassword(password, userWithPassword[0].password)
+    if (!isValidPassword) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 

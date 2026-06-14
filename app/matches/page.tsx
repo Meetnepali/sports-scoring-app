@@ -4,11 +4,23 @@ import { useState, useEffect } from "react"
 import { getMatchesByStatus, updateMatchStatus, deleteMatch } from "@/lib/client-api"
 import { MatchListItem } from "@/components/match-list-item"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Zap, CalendarClock, CheckCircle } from "lucide-react"
+import { Search, PlusCircle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Match } from "@/lib/static-data"
 import { useAuth } from "@/lib/auth-context"
+import { Input } from "@/components/ui/input"
+import { motion } from "framer-motion"
+
+const sportFilters = [
+  { value: "all", label: "All" },
+  { value: "cricket", label: "Cricket" },
+  { value: "volleyball", label: "Volleyball" },
+  { value: "chess", label: "Chess" },
+  { value: "futsal", label: "Futsal" },
+  { value: "table-tennis", label: "Table Tennis" },
+  { value: "badminton", label: "Badminton" },
+]
 
 export default function MatchesPage() {
   const { isAdmin } = useAuth()
@@ -18,6 +30,8 @@ export default function MatchesPage() {
   const [loading, setLoading] = useState(true)
   const [startingMatchId, setStartingMatchId] = useState<string | null>(null)
   const [matchFilter, setMatchFilter] = useState<"all" | "standalone" | "tournament">("all")
+  const [sportFilter, setSportFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
 
   const loadMatches = async () => {
@@ -29,60 +43,48 @@ export default function MatchesPage() {
         getMatchesByStatus("scheduled"),
         getMatchesByStatus("completed")
       ])
-      
-      // Started matches are shown in "Live" tab (they need configuration/toss)
-      // Live matches are actual matches being scored
       setLiveMatches([...started, ...live])
       setScheduledMatches(scheduled)
-      setCompletedMatches(completed.slice(0, 3)) // Show only 3 most recent
+      setCompletedMatches(completed.slice(0, 3))
     } catch (error) {
       console.error('Error loading matches:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load matches",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to load matches", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
   const filterMatches = (matches: Match[]) => {
-    if (matchFilter === "standalone") {
-      return matches.filter((match) => !match.tournamentId)
+    let filtered = matches
+    if (matchFilter === "standalone") filtered = filtered.filter((m) => !m.tournamentId)
+    else if (matchFilter === "tournament") filtered = filtered.filter((m) => m.tournamentId)
+    if (sportFilter !== "all") filtered = filtered.filter((m) => m.sport === sportFilter)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (m) =>
+          m.homeTeam.name.toLowerCase().includes(q) ||
+          m.awayTeam.name.toLowerCase().includes(q) ||
+          m.sport.toLowerCase().includes(q) ||
+          m.venue?.toLowerCase().includes(q)
+      )
     }
-    if (matchFilter === "tournament") {
-      return matches.filter((match) => match.tournamentId)
-    }
-    return matches
+    return filtered
   }
 
-  useEffect(() => {
-    loadMatches()
-  }, [])
+  useEffect(() => { loadMatches() }, [])
 
   const handleStartMatch = async (matchId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
     try {
       setStartingMatchId(matchId)
       await updateMatchStatus(matchId, 'started')
-      
-      toast({
-        title: "Match Started!",
-        description: "Complete the toss/configuration to begin scoring.",
-      })
-      
-      // Reload matches to update the UI
+      toast({ title: "Match Started!", description: "Complete the toss/configuration to begin scoring." })
       await loadMatches()
     } catch (error) {
       console.error('Error starting match:', error)
-      toast({
-        title: "Error",
-        description: "Failed to start match. Please try again.",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to start match.", variant: "destructive" })
     } finally {
       setStartingMatchId(null)
     }
@@ -91,78 +93,69 @@ export default function MatchesPage() {
   const handleDeleteMatch = async (matchId: string) => {
     try {
       await deleteMatch(matchId)
-      
-      toast({
-        title: "Match Deleted",
-        description: "The match has been permanently deleted.",
-      })
-      
-      // Reload matches to update the UI
+      toast({ title: "Match Deleted", description: "The match has been permanently deleted." })
       await loadMatches()
     } catch (error) {
       console.error('Error deleting match:', error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete match"
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      })
-      throw error // Re-throw to let the component handle the error state
+      const msg = error instanceof Error ? error.message : "Failed to delete match"
+      toast({ title: "Error", description: msg, variant: "destructive" })
+      throw error
     }
   }
+
+  const getTabCount = (matches: Match[]) => filterMatches(matches).length
 
   const renderMatchList = (matches: Match[], status: "live" | "scheduled" | "completed") => {
     if (loading) {
       return (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-28 rounded-[1.8rem] border border-slate-200/80 bg-white shadow-sm"
-            >
-              <div className="h-full w-full animate-pulse rounded-[1.8rem] bg-slate-100/60" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="h-3 w-20 bg-slate-100 rounded-full animate-pulse mb-4" />
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-slate-50 animate-pulse" />
+                  <div className="h-4 w-28 bg-slate-100 rounded-full animate-pulse" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-slate-50 animate-pulse" />
+                  <div className="h-4 w-24 bg-slate-100 rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div className="h-3 w-32 bg-slate-50 rounded-full animate-pulse" />
             </div>
           ))}
         </div>
       )
     }
 
-    if (matches.length === 0) {
+    const filtered = filterMatches(matches)
+
+    if (filtered.length === 0) {
       return (
-        <div className="rounded-[1.8rem] border border-dashed border-slate-300/70 bg-white px-8 py-14 text-center shadow-sm">
-          <div className="mb-4 flex justify-center">
-            {status === "live" ? (
-              <Zap className="h-10 w-10 text-slate-400" />
-            ) : status === "scheduled" ? (
-              <CalendarClock className="h-10 w-10 text-slate-400" />
-            ) : (
-              <CheckCircle className="h-10 w-10 text-slate-400" />
-            )}
-          </div>
-          <p className="text-base font-semibold text-slate-700">
-            {status === "live"
-              ? "No live matches right now."
-              : status === "scheduled"
-                ? "No scheduled matches yet."
-                : "No completed matches available."}
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
+          <p className="text-sm font-semibold text-slate-600 mb-1">
+            {status === "live" ? "No live matches right now" : status === "scheduled" ? "No scheduled matches" : "No completed matches"}
           </p>
-          {status === "scheduled" && isAdmin && (
-            <div className="mt-6 flex justify-center">
-              <Link
-                href="/matches/create"
-                className="rounded-full bg-black px-6 py-2 text-sm font-semibold text-white transition hover:bg-slate-900"
-              >
-                Create Match
-              </Link>
-            </div>
+          <p className="text-xs text-slate-400">
+            {searchQuery ? "Try adjusting your search or filters" : "Check back later for updates"}
+          </p>
+          {status === "scheduled" && isAdmin && !searchQuery && (
+            <Link
+              href="/matches/create"
+              className="inline-flex items-center gap-2 mt-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-sm font-semibold text-white transition-all"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Create Match
+            </Link>
           )}
         </div>
       )
     }
 
     return (
-      <div className="space-y-3">
-        {matches.map((match) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filtered.map((match) => (
           <MatchListItem
             key={match.id}
             match={match}
@@ -177,76 +170,133 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900">Results</h1>
+    <div className="min-h-screen bg-[#fafbfc] relative">
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `linear-gradient(rgba(15,23,42,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.02) 1px, transparent 1px)`,
+        backgroundSize: '64px 64px'
+      }} />
+
+      <div className="container mx-auto px-4 py-8 lg:py-10 relative">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          {/* Header */}
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-400">Matches</span>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">All Matches</h1>
+            </div>
+            {isAdmin && (
+              <Link
+                href="/matches/create"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-emerald-600/20 transition-all duration-200 w-fit"
+              >
+                <PlusCircle className="h-4 w-4" />
+                New Match
+              </Link>
+            )}
+          </div>
+
+          {/* Filters Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-6 space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search matches, teams, venues..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10 rounded-xl border-slate-200 bg-slate-50 text-sm focus:border-emerald-400 focus:ring-emerald-400/20 focus:bg-white"
+              />
+            </div>
+
+            {/* Filter row: type + sport */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* Type filter */}
+              <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-0.5 shrink-0">
+                {[
+                  { value: "all", label: "All" },
+                  { value: "standalone", label: "Standalone" },
+                  { value: "tournament", label: "Tournament" },
+                ].map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => setMatchFilter(f.value as "all" | "standalone" | "tournament")}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${
+                      matchFilter === f.value
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div className="hidden sm:block h-5 w-px bg-slate-200 shrink-0" />
+
+              {/* Sport filter — horizontal scroll on mobile */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+                {sportFilters.map((sport) => (
+                  <button
+                    key={sport.value}
+                    onClick={() => setSportFilter(sport.value)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-all duration-200 ${
+                      sportFilter === sport.value
+                        ? "bg-emerald-50 text-emerald-700 font-semibold"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    {sport.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="live" className="w-full">
+            <TabsList className="mb-5 inline-flex gap-0.5 rounded-lg bg-slate-100 p-0.5 h-auto w-auto">
+              <TabsTrigger
+                value="live"
+                className="rounded-md px-3.5 py-1.5 text-xs font-semibold text-slate-400 transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Live
+                {!loading && liveMatches.length > 0 && (
+                  <span className="ml-1.5 h-4 min-w-[16px] inline-flex items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                    {getTabCount(liveMatches)}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="scheduled"
+                className="rounded-md px-3.5 py-1.5 text-xs font-semibold text-slate-400 transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Scheduled
+                {!loading && scheduledMatches.length > 0 && (
+                  <span className="ml-1.5 h-4 min-w-[16px] inline-flex items-center justify-center rounded-full bg-slate-300 px-1 text-[9px] font-bold text-white">
+                    {getTabCount(scheduledMatches)}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="completed"
+                className="rounded-md px-3.5 py-1.5 text-xs font-semibold text-slate-400 transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Completed
+                {!loading && completedMatches.length > 0 && (
+                  <span className="ml-1.5 h-4 min-w-[16px] inline-flex items-center justify-center rounded-full bg-slate-300 px-1 text-[9px] font-bold text-white">
+                    {getTabCount(completedMatches)}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="live">{renderMatchList(liveMatches, "live")}</TabsContent>
+            <TabsContent value="scheduled">{renderMatchList(scheduledMatches, "scheduled")}</TabsContent>
+            <TabsContent value="completed">{renderMatchList(completedMatches, "completed")}</TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
-
-      {/* Match Filter */}
-      <div className="mb-6 flex items-center gap-2 bg-white rounded-full p-1 border border-slate-200 w-fit">
-        <button
-          onClick={() => setMatchFilter("all")}
-          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-            matchFilter === "all"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          All Matches
-        </button>
-        <button
-          onClick={() => setMatchFilter("standalone")}
-          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-            matchFilter === "standalone"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Standalone
-        </button>
-        <button
-          onClick={() => setMatchFilter("tournament")}
-          className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-            matchFilter === "tournament"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          Tournament
-        </button>
-      </div>
-
-      <Tabs defaultValue="live" className="w-full">
-        <TabsList className="mb-10 grid w-full grid-cols-3 rounded-full bg-slate-100/70 p-1">
-          <TabsTrigger
-            value="live"
-            className="flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-500 transition data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900"
-          >
-            <Zap className="h-4 w-4 text-red-500" />
-            Live
-          </TabsTrigger>
-          <TabsTrigger
-            value="scheduled"
-            className="flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-500 transition data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900"
-          >
-            <CalendarClock className="h-4 w-4 text-blue-500" />
-            Scheduled
-          </TabsTrigger>
-          <TabsTrigger
-            value="completed"
-            className="flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-500 transition data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-slate-900"
-          >
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            Completed
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="live">{renderMatchList(filterMatches(liveMatches), "live")}</TabsContent>
-
-        <TabsContent value="scheduled">{renderMatchList(filterMatches(scheduledMatches), "scheduled")}</TabsContent>
-
-        <TabsContent value="completed">{renderMatchList(filterMatches(completedMatches), "completed")}</TabsContent>
-      </Tabs>
     </div>
   )
 }

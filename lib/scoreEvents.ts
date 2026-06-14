@@ -6,6 +6,8 @@ const subscribers = new Map<string, Set<(data: any) => void>>()
 // Single Postgres LISTEN connection
 let listenClient: Client | null = null
 let isListening = false
+let reconnectAttempts = 0
+const MAX_RECONNECT_ATTEMPTS = 5
 
 /**
  * Initialize the Postgres LISTEN connection
@@ -56,17 +58,25 @@ async function initializeListenConnection() {
     listenClient.on("error", (error) => {
       console.error("Postgres LISTEN connection error:", error)
       isListening = false
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (!isListening) {
-          initializeListenConnection().catch(console.error)
-        }
-      }, 5000)
+      listenClient = null
+      reconnectAttempts++
+      if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(5000 * Math.pow(2, reconnectAttempts - 1), 60000)
+        console.log(`Reconnecting LISTEN in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`)
+        setTimeout(() => {
+          if (!isListening) {
+            initializeListenConnection().catch(console.error)
+          }
+        }, delay)
+      } else {
+        console.error("Max LISTEN reconnection attempts reached. Real-time updates disabled.")
+      }
     })
 
     // Start listening
     await listenClient.query("LISTEN score_updates")
     isListening = true
+    reconnectAttempts = 0
     console.log("Postgres LISTEN connection established for score_updates")
   } catch (error) {
     console.error("Error initializing LISTEN connection:", error)

@@ -2,10 +2,21 @@
 
 import { Team, Match, Tournament } from "./static-data"
 
+// Fetch with timeout to prevent indefinite hangs
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // Team functions
 export async function getTeamsBySport(sport: string): Promise<Team[]> {
   try {
-    const response = await fetch(`/api/teams/sport/${sport}`)
+    const response = await fetchWithTimeout(`/api/teams/sport/${sport}`)
     if (!response.ok) {
       throw new Error('Failed to fetch teams')
     }
@@ -18,7 +29,7 @@ export async function getTeamsBySport(sport: string): Promise<Team[]> {
 
 export async function getAllTeams(): Promise<Team[]> {
   try {
-    const response = await fetch('/api/teams')
+    const response = await fetchWithTimeout('/api/teams')
     if (!response.ok) {
       throw new Error('Failed to fetch teams')
     }
@@ -31,7 +42,7 @@ export async function getAllTeams(): Promise<Team[]> {
 
 export async function getTeamById(id: string): Promise<Team | null> {
   try {
-    const response = await fetch(`/api/teams/${id}`)
+    const response = await fetchWithTimeout(`/api/teams/${id}`)
     if (!response.ok) {
       if (response.status === 404) {
         return null
@@ -48,7 +59,7 @@ export async function getTeamById(id: string): Promise<Team | null> {
 // Match functions
 export async function getMatchesByStatus(status: 'scheduled' | 'started' | 'live' | 'completed'): Promise<Match[]> {
   try {
-    const response = await fetch(`/api/matches?status=${status}`)
+    const response = await fetchWithTimeout(`/api/matches?status=${status}`)
     if (!response.ok) {
       throw new Error('Failed to fetch matches')
     }
@@ -61,7 +72,7 @@ export async function getMatchesByStatus(status: 'scheduled' | 'started' | 'live
 
 export async function getMatchesBySport(sport: string): Promise<Match[]> {
   try {
-    const response = await fetch(`/api/matches?sport=${sport}`)
+    const response = await fetchWithTimeout(`/api/matches?sport=${sport}`)
     if (!response.ok) {
       throw new Error('Failed to fetch matches')
     }
@@ -74,7 +85,7 @@ export async function getMatchesBySport(sport: string): Promise<Match[]> {
 
 export async function getMatchById(id: string): Promise<Match | null> {
   try {
-    const response = await fetch(`/api/matches/${id}`)
+    const response = await fetchWithTimeout(`/api/matches/${id}`)
     if (!response.ok) {
       if (response.status === 404) {
         return null
@@ -95,7 +106,7 @@ export async function createTeam(teamData: {
   logo?: string
   players: { userId: string; number?: number; position?: string }[]
 }): Promise<Team> {
-  const response = await fetch('/api/teams', {
+  const response = await fetchWithTimeout('/api/teams', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -120,7 +131,7 @@ export async function createMatch(matchData: {
   venue: string
   status?: string
 }): Promise<Match> {
-  const response = await fetch('/api/matches', {
+  const response = await fetchWithTimeout('/api/matches', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -139,7 +150,7 @@ export async function createMatch(matchData: {
 }
 
 export async function updateMatchStatus(matchId: string, status: 'scheduled' | 'started' | 'live' | 'completed'): Promise<Match> {
-  const response = await fetch(`/api/matches/${matchId}`, {
+  const response = await fetchWithTimeout(`/api/matches/${matchId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -158,7 +169,7 @@ export async function updateMatchStatus(matchId: string, status: 'scheduled' | '
 }
 
 export async function deleteMatch(matchId: string): Promise<void> {
-  const response = await fetch(`/api/matches/${matchId}`, {
+  const response = await fetchWithTimeout(`/api/matches/${matchId}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -176,7 +187,7 @@ export async function deleteMatch(matchId: string): Promise<void> {
 }
 
 export async function updateMatchScore(matchId: string, score: any): Promise<Match> {
-  const response = await fetch(`/api/matches/${matchId}`, {
+  const response = await fetchWithTimeout(`/api/matches/${matchId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -205,7 +216,7 @@ export async function createTournament(tournamentData: {
   matches?: any[]
   teamLogos?: Record<string, string>
 }): Promise<Tournament> {
-  const response = await fetch('/api/tournaments', {
+  const response = await fetchWithTimeout('/api/tournaments', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -225,7 +236,7 @@ export async function createTournament(tournamentData: {
 
 // New tournament creation functions
 export async function createTournamentBasic(name: string, sportsCount: number): Promise<Tournament> {
-  const response = await fetch('/api/tournaments/create-basic', {
+  const response = await fetchWithTimeout('/api/tournaments/create-basic', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -243,7 +254,7 @@ export async function createTournamentBasic(name: string, sportsCount: number): 
 }
 
 export async function addTournamentSport(tournamentId: string, sport: string, displayOrder: number = 0) {
-  const response = await fetch(`/api/tournaments/${tournamentId}/sports`, {
+  const response = await fetchWithTimeout(`/api/tournaments/${tournamentId}/sports`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -260,7 +271,7 @@ export async function addTournamentSport(tournamentId: string, sport: string, di
 }
 
 export async function getTournamentSports(tournamentId: string) {
-  const response = await fetch(`/api/tournaments/${tournamentId}/sports`)
+  const response = await fetchWithTimeout(`/api/tournaments/${tournamentId}/sports`)
   if (!response.ok) {
     throw new Error('Failed to fetch tournament sports')
   }
@@ -274,7 +285,7 @@ export async function createTournamentGroup(
   sport: string,
   displayOrder: number = 0
 ) {
-  const response = await fetch(`/api/tournaments/${tournamentId}/groups`, {
+  const response = await fetchWithTimeout(`/api/tournaments/${tournamentId}/groups`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -295,7 +306,7 @@ export async function getTournamentGroups(tournamentId: string, sport?: string) 
     ? `/api/tournaments/${tournamentId}/groups?sport=${encodeURIComponent(sport)}`
     : `/api/tournaments/${tournamentId}/groups`
   
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url)
   if (!response.ok) {
     throw new Error('Failed to fetch tournament groups')
   }
@@ -303,7 +314,7 @@ export async function getTournamentGroups(tournamentId: string, sport?: string) 
 }
 
 export async function addTeamToGroup(groupId: string, teamId: string, displayOrder: number = 0) {
-  const response = await fetch(`/api/groups/${groupId}/teams`, {
+  const response = await fetchWithTimeout(`/api/groups/${groupId}/teams`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -320,7 +331,7 @@ export async function addTeamToGroup(groupId: string, teamId: string, displayOrd
 }
 
 export async function removeTeamFromGroup(groupId: string, teamId: string) {
-  const response = await fetch(`/api/groups/${groupId}/teams?teamId=${encodeURIComponent(teamId)}`, {
+  const response = await fetchWithTimeout(`/api/groups/${groupId}/teams?teamId=${encodeURIComponent(teamId)}`, {
     method: 'DELETE',
   })
 
@@ -333,7 +344,7 @@ export async function removeTeamFromGroup(groupId: string, teamId: string) {
 }
 
 export async function getGroupTeams(groupId: string) {
-  const response = await fetch(`/api/groups/${groupId}/teams`)
+  const response = await fetchWithTimeout(`/api/groups/${groupId}/teams`)
   if (!response.ok) {
     throw new Error('Failed to fetch group teams')
   }
@@ -341,7 +352,7 @@ export async function getGroupTeams(groupId: string) {
 }
 
 export async function getGroupMatches(groupId: string) {
-  const response = await fetch(`/api/groups/${groupId}/matches`)
+  const response = await fetchWithTimeout(`/api/groups/${groupId}/matches`)
   if (!response.ok) {
     throw new Error('Failed to fetch group matches')
   }
@@ -349,7 +360,7 @@ export async function getGroupMatches(groupId: string) {
 }
 
 export async function createBracketNode(tournamentId: string, nodeData: any) {
-  const response = await fetch(`/api/tournaments/${tournamentId}/bracket`, {
+  const response = await fetchWithTimeout(`/api/tournaments/${tournamentId}/bracket`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -366,7 +377,7 @@ export async function createBracketNode(tournamentId: string, nodeData: any) {
 }
 
 export async function updateBracketNode(tournamentId: string, nodeId: string, updates: any) {
-  const response = await fetch(`/api/tournaments/${tournamentId}/bracket`, {
+  const response = await fetchWithTimeout(`/api/tournaments/${tournamentId}/bracket`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -387,7 +398,7 @@ export async function getTournamentBracketNodes(tournamentId: string, groupId?: 
     ? `/api/tournaments/${tournamentId}/bracket?groupId=${encodeURIComponent(groupId)}`
     : `/api/tournaments/${tournamentId}/bracket`
   
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url)
   if (!response.ok) {
     throw new Error('Failed to fetch bracket nodes')
   }
@@ -396,7 +407,7 @@ export async function getTournamentBracketNodes(tournamentId: string, groupId?: 
 
 export async function getAllTournaments(): Promise<Tournament[]> {
   try {
-    const response = await fetch('/api/tournaments')
+    const response = await fetchWithTimeout('/api/tournaments')
     if (!response.ok) {
       throw new Error('Failed to fetch tournaments')
     }
@@ -409,7 +420,7 @@ export async function getAllTournaments(): Promise<Tournament[]> {
 
 export async function getTournamentById(id: string): Promise<Tournament | null> {
   try {
-    const response = await fetch(`/api/tournaments/${id}`)
+    const response = await fetchWithTimeout(`/api/tournaments/${id}`)
     if (!response.ok) {
       if (response.status === 404) {
         return null
@@ -429,7 +440,7 @@ export async function updateTournament(id: string, updates: {
   matches?: any[]
   bracketConfig?: Record<string, any>
 }): Promise<Tournament> {
-  const response = await fetch(`/api/tournaments/${id}`, {
+  const response = await fetchWithTimeout(`/api/tournaments/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -446,7 +457,7 @@ export async function updateTournament(id: string, updates: {
 
 export async function deleteTournament(id: string): Promise<void> {
   try {
-    const response = await fetch(`/api/tournaments/${id}`, {
+    const response = await fetchWithTimeout(`/api/tournaments/${id}`, {
       method: 'DELETE',
     })
     if (!response.ok) {

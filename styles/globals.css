@@ -7,8 +7,69 @@ body {
 }
 
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Gradient text utility */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+  }
+
+  .gradient-text-sport {
+    @apply bg-gradient-to-r from-indigo-500 via-purple-500 to-sky-500 bg-clip-text text-transparent;
+  }
+
+  /* Sport-specific gradient text */
+  .gradient-text-cricket {
+    @apply bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent;
+  }
+  .gradient-text-volleyball {
+    @apply bg-gradient-to-r from-teal-500 to-cyan-600 bg-clip-text text-transparent;
+  }
+  .gradient-text-chess {
+    @apply bg-gradient-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent;
+  }
+  .gradient-text-futsal {
+    @apply bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent;
+  }
+  .gradient-text-tabletennis {
+    @apply bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent;
+  }
+  .gradient-text-badminton {
+    @apply bg-gradient-to-r from-purple-500 to-violet-600 bg-clip-text text-transparent;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl;
+  }
+
+  /* Sport accent left border */
+  .sport-accent-cricket {
+    @apply border-l-4 border-l-orange-500;
+  }
+  .sport-accent-volleyball {
+    @apply border-l-4 border-l-teal-500;
+  }
+  .sport-accent-chess {
+    @apply border-l-4 border-l-amber-500;
+  }
+  .sport-accent-futsal {
+    @apply border-l-4 border-l-green-500;
+  }
+  .sport-accent-table-tennis {
+    @apply border-l-4 border-l-blue-500;
+  }
+  .sport-accent-badminton {
+    @apply border-l-4 border-l-purple-500;
   }
 }
 
@@ -47,7 +108,16 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Sport colors */
+    --sport-cricket: 24 100% 60%;
+    --sport-volleyball: 174 56% 54%;
+    --sport-chess: 43 87% 67%;
+    --sport-futsal: 145 72% 44%;
+    --sport-tabletennis: 227 71% 55%;
+    --sport-badminton: 271 76% 53%;
   }
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -91,4 +161,91 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
+}
+
+.animate-count-up {
+  animation: count-up 0.6s ease-out;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Score transition */
+.score-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Live pulse indicator */
+.live-pulse {
+  position: relative;
+}
+
+.live-pulse::before {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
 }

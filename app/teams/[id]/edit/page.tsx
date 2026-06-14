@@ -458,7 +458,7 @@ export default function EditTeamPage() {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"
+                className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full mx-auto mb-4"
               />
               <p className="text-muted-foreground">Loading team...</p>
             </div>
@@ -520,7 +520,7 @@ export default function EditTeamPage() {
             <div className="flex flex-col gap-2">
               <CardTitle className="text-2xl">Update Team Details</CardTitle>
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <Sparkles className="h-4 w-4 text-emerald-600" />
                 Rosters sync with existing user profiles so analytics stay reliable.
               </p>
             </div>
@@ -691,10 +691,10 @@ export default function EditTeamPage() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.05 }}
-                          className="p-4 border rounded-lg bg-card"
+                          className="p-4 border border-slate-200 rounded-2xl bg-white"
                         >
                           <div className="flex items-center mb-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-3">
+                            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center mr-3">
                               {player.profilePhoto ? (
                                 <Image
                                   src={player.profilePhoto}
@@ -704,7 +704,7 @@ export default function EditTeamPage() {
                                   className="rounded-full object-cover"
                                 />
                               ) : (
-                                <User className="h-5 w-5 text-primary" />
+                                <User className="h-5 w-5 text-emerald-600" />
                               )}
                             </div>
                             <div className="font-medium">Player {index + 1}</div>
@@ -858,6 +858,7 @@ export default function EditTeamPage() {
                     <Button
                       onClick={saveTeam}
                       disabled={isSaving || players.filter((p) => p.userId).length === 0 || !teamName.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                     >
                       {isSaving ? (
                         <>

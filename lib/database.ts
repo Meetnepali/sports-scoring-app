@@ -7,7 +7,10 @@ const pool = new Pool({
   database: process.env.PGDATABASE || "sports_scoring_db",
   user: process.env.PGUSER || "postgres",
   password: process.env.PGPASSWORD || "postgres",
-  ssl: false, // No SSL for local development
+  ssl: false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 })
 
 // Query function for executing SQL queries

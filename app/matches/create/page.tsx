@@ -394,8 +394,8 @@ export default function CreateMatchPage() {
 
               {/* Cricket-specific configuration */}
               {selectedSport === "cricket" && (
-                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200 space-y-4">
-                  <h3 className="font-semibold text-blue-900 flex items-center gap-2">
+                <div className="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200 space-y-4">
+                  <h3 className="font-semibold text-emerald-900 flex items-center gap-2">
                     🏏 Cricket Match Configuration
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -427,12 +427,12 @@ export default function CreateMatchPage() {
                         className="h-12 bg-white"
                         required
                       />
-                      <p className="text-xs text-blue-700">
+                      <p className="text-xs text-emerald-700">
                         Recommended: {Math.floor(parseInt(cricketTotalOvers) * 0.2)} overs (20% of total)
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-emerald-600">
                     Note: Toss will be conducted when the match starts for the first time.
                   </p>
                 </div>
@@ -699,8 +699,8 @@ export default function CreateMatchPage() {
                                 />
                               </div>
                             ) : (
-                              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-xs font-bold text-blue-600">
+                              <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-emerald-600">
                                   {selectedHomeTeam.name.charAt(0)}
                                 </span>
                               </div>
@@ -730,8 +730,8 @@ export default function CreateMatchPage() {
                                   />
                                 </div>
                               ) : (
-                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <span className="text-xs font-bold text-blue-600">
+                                <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-bold text-emerald-600">
                                     {team.name.charAt(0)}
                                   </span>
                                 </div>
@@ -763,8 +763,8 @@ export default function CreateMatchPage() {
                                 />
                               </div>
                             ) : (
-                              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                <span className="text-xs font-bold text-blue-600">
+                              <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-emerald-600">
                                   {selectedAwayTeam.name.charAt(0)}
                                 </span>
                               </div>
@@ -796,8 +796,8 @@ export default function CreateMatchPage() {
                                     />
                                   </div>
                                 ) : (
-                                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span className="text-xs font-bold text-blue-600">
+                                  <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                                    <span className="text-xs font-bold text-emerald-600">
                                       {team.name.charAt(0)}
                                     </span>
                                   </div>
@@ -843,8 +843,8 @@ export default function CreateMatchPage() {
               </div>
 
               {tournamentName && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                  <p className="text-sm text-blue-700">
+                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                  <p className="text-sm text-emerald-700">
                     This match is part of the <strong>{tournamentName}</strong> tournament. The result will be updated
                     in the tournament bracket.
                   </p>
@@ -869,10 +869,10 @@ export default function CreateMatchPage() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={!selectedSport || !venue || !matchDateTime || !homeTeam || !awayTeam || submitting || filteredTeams.length < 2}
-                  className="px-8"
+                  className="px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                 >
                   {submitting ? (
                     <>

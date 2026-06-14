@@ -135,14 +135,27 @@ const config = {
           to: { transform: "translateX(0)" },
         },
         "energy-pulse": {
-          "0%, 100%": { 
+          "0%, 100%": {
             boxShadow: "0 0 20px rgba(0, 217, 255, 0.3)",
             transform: "scale(1)"
           },
-          "50%": { 
+          "50%": {
             boxShadow: "0 0 40px rgba(0, 217, 255, 0.6)",
             transform: "scale(1.02)"
           },
+        },
+        "slide-down": {
+          from: { transform: "translateY(-8px)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "gradient-shift": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
         },
       },
       animation: {
@@ -161,6 +174,9 @@ const config = {
         "slide-left": "slide-left 0.3s ease-out",
         "slide-right": "slide-right 0.3s ease-out",
         "energy-pulse": "energy-pulse 2s ease-in-out infinite",
+        "slide-down": "slide-down 0.2s ease-out",
+        "float": "float 3s ease-in-out infinite",
+        "gradient-shift": "gradient-shift 3s ease infinite",
       },
       backdropBlur: {
         xs: '2px',

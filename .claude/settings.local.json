@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(psql -U postgres -h localhost -c \"SELECT version\\(\\);\")",
+      "Bash(PGPASSWORD=postgres psql -U postgres -h localhost -c \"SELECT 1;\" 2>&1)",
+      "Bash(PGPASSWORD=Meet psql -U postgres -h localhost -c \"SELECT 1;\" 2>&1)",
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -c \"SELECT 1;\" 2>&1)",
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -c \"DROP DATABASE IF EXISTS sports_scoring_db;\")",
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -c \"CREATE DATABASE sports_scoring_db;\")",
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -d sports_scoring_db -f \"M:/sports scoring app/sports-scoring-app/scripts/setup-full-db.sql\" 2>&1)",
+      "Bash(PGPASSWORD=1234 psql -U postgres -h localhost -d sports_scoring_db -c \"\nSELECT 'users' as tbl, count\\(*\\) FROM users\nUNION ALL SELECT 'teams', count\\(*\\) FROM teams\nUNION ALL SELECT 'players', count\\(*\\) FROM players\nUNION ALL SELECT 'matches', count\\(*\\) FROM matches\nUNION ALL SELECT 'sports', count\\(*\\) FROM sports\nUNION ALL SELECT 'tournaments', count\\(*\\) FROM tournaments\nUNION ALL SELECT 'tournament_groups', count\\(*\\) FROM tournament_groups\nUNION ALL SELECT 'group_teams', count\\(*\\) FROM group_teams\nUNION ALL SELECT 'group_matches', count\\(*\\) FROM group_matches\nUNION ALL SELECT 'cricket_config', count\\(*\\) FROM cricket_match_config\nUNION ALL SELECT 'volleyball_config', count\\(*\\) FROM volleyball_match_config\nUNION ALL SELECT 'chess_config', count\\(*\\) FROM chess_match_config\nUNION ALL SELECT 'futsal_config', count\\(*\\) FROM futsal_match_config\nUNION ALL SELECT 'tt_config', count\\(*\\) FROM table_tennis_match_config\nUNION ALL SELECT 'badminton_config', count\\(*\\) FROM badminton_match_config\nUNION ALL SELECT 'user_memberships', count\\(*\\) FROM user_team_memberships\nUNION ALL SELECT 'user_stats', count\\(*\\) FROM user_sports_stats\nUNION ALL SELECT 'user_participation', count\\(*\\) FROM user_match_participation\nORDER BY tbl;\n\" 2>&1)",
+      "Bash(cat app/api/stream/match/[matchId]/route.ts)",
+      "Bash(cat app/api/matches/[id]/route.ts)",
+      "Bash(cat app/api/matches/[id]/cricket/ball/route.ts)",
+      "Bash(cat app/api/groups/[id]/matches/route.ts)",
+      "Bash(for file:*)",
+      "Bash(do echo:*)",
+      "Read(//m/sports scoring app/sports-scoring-app/**)",
+      "Bash(done)",
+      "Bash(cat app/api/tournaments/[id]/fixtures/route.ts)",
+      "Bash(cat app/api/matches/[id]/complete/route.ts)",
+      "Bash(cat app/api/tournaments/[id]/groups/route.ts)",
+      "Bash(cat app/api/matches/[id]/cricket/config/route.ts)",
+      "Skill(update-config)"
+    ]
+  }
+}

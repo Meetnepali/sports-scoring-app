@@ -12,7 +12,7 @@ import TableTennisScoreboard from "@/components/scoreboards/table-tennis-scorebo
 import BadmintonScoreboard from "@/components/scoreboards/badminton-scoreboard"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarDays, MapPin, Trash2 } from "lucide-react"
+import { CalendarDays, MapPin, Trash2, ChevronRight, ArrowLeft, Target, Volleyball, Swords, CircleDot, Activity, Dumbbell, Trophy } from "lucide-react"
 import { PageTransition } from "@/components/page-transition"
 import { motion } from "framer-motion"
 import type { Match } from "@/lib/static-data"
@@ -21,6 +21,7 @@ import { MatchWinnerDialog } from "@/components/match-winner-dialog"
 import { ScoreboardWrapper } from "@/components/scoreboard-wrapper"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+import type { LucideIcon } from "lucide-react"
+
+const sportConfig: Record<string, { Icon: LucideIcon; gradient: string; label: string }> = {
+  cricket: { Icon: Target, gradient: "from-slate-800 to-slate-900", label: "Cricket" },
+  volleyball: { Icon: Volleyball, gradient: "from-slate-800 to-slate-900", label: "Volleyball" },
+  chess: { Icon: Swords, gradient: "from-slate-800 to-slate-900", label: "Chess" },
+  futsal: { Icon: CircleDot, gradient: "from-slate-800 to-slate-900", label: "Futsal" },
+  "table-tennis": { Icon: Activity, gradient: "from-slate-800 to-slate-900", label: "Table Tennis" },
+  badminton: { Icon: Dumbbell, gradient: "from-slate-800 to-slate-900", label: "Badminton" },
+}
 
 export default function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -50,14 +62,11 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
     try {
       const data = await getMatchById(id)
       setMatch(data)
-      // Track version from initial fetch
       if (data && (data as any).version !== undefined) {
         setCurrentVersion((data as any).version)
       }
-      
-      // Show winner dialog if match is completed and user hasn't seen it yet
+
       if (data && data.status === "completed" && !hasSeenWinnerDialogRef.current) {
-        // Check if there's a stored flag in sessionStorage
         const seenKey = `match_winner_seen_${id}`
         const hasSeen = sessionStorage.getItem(seenKey)
         if (!hasSeen) {
@@ -78,7 +87,7 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
     fetchMatch()
   }, [id])
 
-  // Set up EventSource for real-time score updates
+  // SSE for real-time score updates
   useEffect(() => {
     if (!match?.id || loading) return
 
@@ -95,15 +104,10 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
             const updateData = JSON.parse(event.data)
             const { matchId, score, status, version, updatedAt } = updateData
 
-            // Only update if version is newer
             setCurrentVersion((prevVersion) => {
               if (version > prevVersion) {
-                // Update match state with new data
                 setMatch((prevMatch) => {
                   if (!prevMatch) return prevMatch
-                  
-                  const wasCompleted = prevMatch.status === "completed"
-                  
                   return {
                     ...prevMatch,
                     score: score,
@@ -111,7 +115,6 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
                   }
                 })
 
-                // Show winner dialog if match just completed
                 if (status === "completed" && !hasSeenWinnerDialogRef.current) {
                   const seenKey = `match_winner_seen_${id}`
                   const hasSeen = sessionStorage.getItem(seenKey)
@@ -131,22 +134,20 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
 
         eventSource.onerror = (error) => {
           console.warn("EventSource connection error, will retry if needed")
-          // Close the current connection
           if (eventSource) {
             eventSource.close()
           }
-          
-          // Only retry a limited number of times
+
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++
             setTimeout(() => {
               if (!loading) setupEventSource()
-            }, 1000 * reconnectAttempts) // Exponential backoff
+            }, 1000 * reconnectAttempts)
           }
         }
 
         eventSource.onopen = () => {
-          reconnectAttempts = 0 // Reset on successful connection
+          reconnectAttempts = 0
         }
       } catch (error) {
         console.error("Error setting up EventSource:", error)
@@ -155,36 +156,31 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
 
     setupEventSource()
 
-    // Cleanup on unmount
     return () => {
       if (eventSource) {
         eventSource.close()
         eventSource = null
       }
     }
-  }, [id, match?.id, loading])
+  }, [id, match?.id])
 
-  // Handle closing winner dialog
   const handleCloseWinnerDialog = () => {
     setShowWinnerDialog(false)
     setHasSeenWinnerDialog(true)
     hasSeenWinnerDialogRef.current = true
-    // Store in sessionStorage so it doesn't show again during this session
     sessionStorage.setItem(`match_winner_seen_${id}`, "true")
   }
 
-  // Handle match deletion
   const handleDeleteMatch = async () => {
     try {
       setDeleting(true)
       await deleteMatch(id)
-      
+
       toast({
         title: "Match Deleted",
         description: "The match has been permanently deleted.",
       })
-      
-      // Redirect to matches page
+
       router.push("/matches")
     } catch (error) {
       console.error('Error deleting match:', error)
@@ -241,89 +237,125 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
     }
   }
 
-  const getSportIcon = () => {
-    switch (match.sport) {
-      case "cricket":
-        return "🏏"
-      case "volleyball":
-        return "🏐"
-      case "chess":
-        return "♟️"
-      case "futsal":
-        return "⚽"
-      case "table-tennis":
-        return "🏓"
-      case "badminton":
-        return "🏸"
-      default:
-        return "🏆"
-    }
-  }
-
-  const getStatusBadgeVariant = () => {
-    switch (match.status) {
-      case "live":
-        return "destructive"
-      case "completed":
-        return "default"
-      default:
-        return "outline"
-    }
-  }
+  const sport = sportConfig[match.sport] || { Icon: Trophy, gradient: "from-slate-800 to-slate-900", label: match.sport }
 
   return (
     <PageTransition>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
+        {/* Breadcrumb */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center gap-2 text-sm text-slate-500 mb-6"
+        >
+          <Link href="/matches" className="hover:text-slate-700 transition-colors flex items-center gap-1">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Matches
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-slate-400">{sport.label}</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-slate-900 font-medium">{match.homeTeam.name} vs {match.awayTeam.name}</span>
+        </motion.div>
+
+        {/* Match Header Card */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-card text-card-foreground rounded-lg shadow-md p-6 mb-8 animate-fade-in"
+          className={`relative overflow-hidden rounded-2xl shadow-lg mb-8`}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <span className="text-3xl mr-3">{getSportIcon()}</span>
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  {match.homeTeam.name} vs {match.awayTeam.name}
-                  <Badge variant={getStatusBadgeVariant()} className="text-sm ml-2">
-                    {match.status === "live" ? "LIVE" : match.status.toUpperCase()}
-                  </Badge>
-                </h1>
-              </div>
-            </div>
-            
-            {isAdmin && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={deleting || match.status === "live" || match.status === "started"}
-                title={match.status === "live" || match.status === "started" ? "Cannot delete live or started matches" : "Delete match"}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Match
-              </Button>
-            )}
-          </div>
+          {/* Gradient background */}
+          <div className={`absolute inset-0 bg-gradient-to-r ${sport.gradient} opacity-[0.07]`} />
+          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm" />
 
-          <div className="flex flex-col sm:flex-row gap-4 text-sm text-muted-foreground mb-6">
-            <div className="flex items-center">
-              <CalendarDays className="h-4 w-4 mr-2" />
-              {formatDate(match.date)}
-            </div>
-            <div className="flex items-center">
-              <MapPin className="h-4 w-4 mr-2" />
-              {match.venue}
+          <div className="relative p-6 lg:p-8">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              {/* Teams */}
+              <div className="flex items-center gap-6 lg:gap-10">
+                {/* Home Team */}
+                <div className="text-center flex-1 lg:flex-initial">
+                  <div className={`h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-gradient-to-br ${sport.gradient} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
+                    <span className="text-2xl lg:text-3xl font-bold text-white">
+                      {match.homeTeam.name.charAt(0)}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-slate-900 text-sm lg:text-base">{match.homeTeam.name}</h3>
+                </div>
+
+                {/* VS / Score */}
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center">
+                      <sport.Icon className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  {/* Status Badge */}
+                  {match.status === "live" ? (
+                    <Badge className="bg-red-500 text-white border-0 animate-pulse">
+                      <span className="mr-1 h-1.5 w-1.5 rounded-full bg-white inline-block" />
+                      LIVE
+                    </Badge>
+                  ) : match.status === "completed" ? (
+                    <Badge className="bg-green-100 text-green-700 border-0">
+                      COMPLETED
+                    </Badge>
+                  ) : match.status === "started" ? (
+                    <Badge className="bg-amber-100 text-amber-700 border-0">
+                      STARTED
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">
+                      {match.status.toUpperCase()}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Away Team */}
+                <div className="text-center flex-1 lg:flex-initial">
+                  <div className={`h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-gradient-to-br ${sport.gradient} flex items-center justify-center mx-auto mb-3 shadow-lg opacity-80`}>
+                    <span className="text-2xl lg:text-3xl font-bold text-white">
+                      {match.awayTeam.name.charAt(0)}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-slate-900 text-sm lg:text-base">{match.awayTeam.name}</h3>
+                </div>
+              </div>
+
+              {/* Match Info */}
+              <div className="flex flex-col gap-2 text-sm text-slate-500">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>{formatDate(match.date)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>{match.venue}</span>
+                </div>
+
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={deleting || match.status === "live" || match.status === "started"}
+                    className="mt-2 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 rounded-xl"
+                    title={match.status === "live" || match.status === "started" ? "Cannot delete live or started matches" : "Delete match"}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Match
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
 
+        {/* Scoreboard */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="animate-slide-in"
         >
           <ScoreboardWrapper match={match}>
             {renderScoreboard()}
@@ -331,7 +363,7 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
         </motion.div>
       </div>
 
-      {/* Winner announcement dialog for completed matches */}
+      {/* Winner Dialog */}
       {match.status === "completed" && (
         <MatchWinnerDialog
           match={match}
@@ -340,9 +372,9 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
         />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Match?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -352,11 +384,11 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting} className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteMatch}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
               {deleting ? "Deleting..." : "Delete Match"}
             </AlertDialogAction>
